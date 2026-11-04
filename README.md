@@ -23,7 +23,7 @@ An open source HSM that supports secp256k1, ECDSA, BIP-340 Schnorr and Ed25519. 
 | 1 | [i.MX 8M Plus quad SOM, 4–8 GB LPDDR4, 32 GB eMMC](https://www.mouser.co.uk/en/ProductDetail/NXP-Semiconductors/8MPLUSLPD4-EVK?qs=sGAEpiMZZMv0WPLDnYsI7z%252BJKhWGmFt4C%252BT8bKH1DJMnMT5qg1wHVg%3D%3D) | Pick a vendor that publishes HAB secure-boot docs and mainline U-Boot/OP-TEE support |
 | 1 | Custom carrier PCB, 6-layer | Section 5 |
 | 1 | [NXP SE050 (AES + P-256 variant)](https://www.mouser.co.uk/en/ProductDetail/NXP-Semiconductors/SE050C1HQ1-Z01SCZ?qs=uwxL4vQweFPAe9Cpm7Fm%252BQ%3D%3D) | 5.3 |
-| 1 | STM32U5, LQFP64, not U575/585 rev X | 5.2 |
+| 1 | [STM32U5, LQFP64, not U575/585 rev X](https://www.mouser.co.uk/en/ProductDetail/STMicroelectronics/STM32U595RJT6Q?qs=sGAEpiMZZMuI9neUTtPr757IDD%2FwidVOeNx%252BK87m1RZ2F32QVOiwxQ%3D%3D) | Tamper Supervisor |
 | 1 | Low-power 3-axis accelerometer | Tamper: movement |
 | 1 | Photodiode + comparator | Tamper: light |
 | 2 | Normally-closed microswitch | Tamper: lid |
