@@ -1,7 +1,9 @@
 # OpenHSM
 An open source HSM that supports secp256k1, ECDSA, BIP-340 Schnorr and Ed25519. We're sticking it to them and saving millions in the process. Currently Pre-Alpha project status.
 
-![OpenHSM Architecture](./OpenHSM_Architecture.png)
+![OpenHSM Site Architecture](./OpenHSM_Site_Architecture.png)
+
+![OpenHSM Node Architecture](./OpenHSM_Architecture.png)
 
 # System Requirements
 
@@ -37,3 +39,5 @@ An open source HSM that supports secp256k1, ECDSA, BIP-340 Schnorr and Ed25519. 
 | 1 | Inner steel can, potting compound, 1U chassis, heatsink | 5.6 |
 | 2 | [12 V PSU](https://www.mouser.co.uk/en/ProductDetail/TRACO-Power/TPP-65-321M2?qs=sGAEpiMZZMs2%252BVrH5rwl1id2VXUzi3Lii24GqnUNwzGlvbhsaKOHlw%3D%3D) | One per PDU |
 | 1 | USB CCID smartcard reader | Front panel |
+
+
