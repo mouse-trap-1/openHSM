@@ -40,7 +40,7 @@ Schematics and signal-level netlists, a full bill of materials, cluster architec
 
 | Qty | Item | Notes |
 |-----|------|-------|
-| 1 | [i.MX 8M Plus quad SOM, 4–8 GB LPDDR4, 32 GB eMMC](https://www.mouser.co.uk/en/ProductDetail/NXP-Semiconductors/8MPLUSLPD4-EVK?qs=sGAEpiMZZMv0WPLDnYsI7z%252BJKhWGmFt4C%252BT8bKH1DJMnMT5qg1wHVg%3D%3D) | Pick a vendor that publishes HAB secure-boot docs and mainline U-Boot/OP-TEE support |
+| 1 | [i.MX 8M Plus quad SOM, 4–8 GB LPDDR4, 32 GB eMMC](https://shop.variscite.com/product/system-on-module/dart-mx8m-plus-system-on-module/?_gl=1*1tdgpdy*_gcl_aw*R0NMLjE3OTM4MzU1MTQuQ2p3S0NBaUF6S3ZYQmhCQUVpd0FCTGw5QXRQTlVjNzJwclB3bHdyQUxXaU11WmV0MVF0VFYwZ19vOUhuVzBOa0VpdUNndDZXMWdxMWRCb0N2VklRQXZEX0J3RQ..*_gcl_au*MTU5MTc4NDg4OS4xNzkzODM1MzAyLi0uLS4xNzkzODM1MzAxLjczODA5NjYyNi4xNzkzODM1MzAyLjE3OTM4MzU1MTM.*_ga*MTM0NTY1MDA2OS4xNzkzODM1Mjk3*_ga_HXGNGLZXPK*czE3OTM4MzUyOTUkbzEkZzEkdDE3OTM4MzU1MTMkajQkbDAkaDA.#sf_source=direct) [Dev kit](https://www.mouser.co.uk/en/ProductDetail/NXP-Semiconductors/8MPLUSLPD4-EVK?qs=sGAEpiMZZMv0WPLDnYsI7z%252BJKhWGmFt4C%252BT8bKH1DJMnMT5qg1wHVg%3D%3D) | Pick a vendor that publishes HAB secure-boot docs and mainline U-Boot/OP-TEE support |
 | 1 | Custom carrier PCB, 6-layer | Section 5 |
 | 1 | [NXP SE050 (AES + P-256 variant)](https://www.mouser.co.uk/en/ProductDetail/NXP-Semiconductors/SE050C1HQ1-Z01SCZ?qs=uwxL4vQweFPAe9Cpm7Fm%252BQ%3D%3D) | 5.3 |
 | 1 | [STM32U5, LQFP64, not U575/585 rev X](https://www.mouser.co.uk/en/ProductDetail/STMicroelectronics/STM32U595RJT6Q?qs=sGAEpiMZZMuI9neUTtPr757IDD%2FwidVOeNx%252BK87m1RZ2F32QVOiwxQ%3D%3D) | Tamper Supervisor |
