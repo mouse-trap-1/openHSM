@@ -26,9 +26,9 @@ An open source HSM that supports secp256k1, ECDSA, BIP-340 Schnorr and Ed25519. 
 | 1 | [STM32U5, LQFP64, not U575/585 rev X](https://www.mouser.co.uk/en/ProductDetail/STMicroelectronics/STM32U595RJT6Q?qs=sGAEpiMZZMuI9neUTtPr757IDD%2FwidVOeNx%252BK87m1RZ2F32QVOiwxQ%3D%3D) | Tamper Supervisor |
 | 1 | [Low-power 3-axis accelerometer](https://www.mouser.co.uk/en/ProductDetail/STMicroelectronics/AIS328DQTR?qs=LYO3r17CQdPWOQ2wXNVBxw%3D%3D) | Tamper: movement |
 | 1 | Photodiode + comparator | Tamper: light |
-| 2 | Normally-closed microswitch | Tamper: lid |
-| 1 | Mesh flex PCB, 4 serpentine pairs, 0.15 mm |Wraps the inner can |
-| 1 | CR123A cell + holder | Tamper domain |
+| 2 | [Normally-closed microswitch](https://www.mouser.co.uk/en/ProductDetail/TE-Connectivity-Alcoswitch/SAJ101XRHLN74SDTPTQ?qs=7MVldsJ5UazROW4Ax1GBQQ%3D%3D&mgh=1&vip=1&utm_id=20797887765&utm_source=google&utm_medium=cpc&utm_marketing_tactic=emeacorp&gad_source=1&gad_campaignid=20808116062&gclid=CjwKCAiAzKvXBhBAEiwABLl9AkOKdimXGZGH7wUT0jrg68YRtqmUqSESL2dKNqFZ-Koe49nV-s2gixoCz8EQAvD_BwE) | Tamper: lid |
+| 1 | Mesh flex PCB, 4 serpentine pairs, 0.15 mm | Wraps the inner can |
+| 1 | [CR123A cell](https://cpc.farnell.com/panasonic/cr-123apa-be/battery-lithium-3v-1400mah-cr123/dp/BT07022?gross_price=true&mckv=sshopping_dc|pcrid|426684131180|kword||match||plid||slid||product|BT07022|pgrid|100371159518|ptaid|pla-876883326959|&CMP=KNC-GUK-CPC-SHOPPING-9262013734-100371159518-BT07022&s_kwcid=AL!5616!3!426684131180!!!network%7D!876883326959!&gad_source=1&gad_campaignid=9262013734&gclid=CjwKCAiAzKvXBhBAEiwABLl9Ah9d6WF0O7iEIsoTXdM28dJzfnL-x9ElsLvGuq32XKPLxNJdqJOgqhoCaioQAvD_BwE) + [holder](https://uk.farnell.com/multicomp-pro/mp000356/battery-holder-cr123a-pcb/dp/3126594?cjdata=MXxZfDB8WXww&gross_price=true&CMP=AFC-CJ-UK-8989328&source=CJ&cjevent=92bb662bd89a11f182d400a90a1981f9&loyaltysignal=0) | Tamper domain |
 | 2 | Gigabit RGMII PHY + RJ45 magjack | Client and cluster ports |
 | 1 | 256–512 GB M.2 NVMe, high-endurance | Audit ring |
 | 2 | LM74700 + N-FET | Power ORing |
