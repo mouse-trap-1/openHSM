@@ -37,5 +37,3 @@ An open source HSM that supports secp256k1, ECDSA, BIP-340 Schnorr and Ed25519. 
 | 1 | Inner steel can, potting compound, 1U chassis, heatsink | 5.6 |
 | 2 | 12 V PSU |One per PDU |
 | 1 | USB CCID smartcard reader | Front panel |
-USB CCID smartcard reader
-Front panel
