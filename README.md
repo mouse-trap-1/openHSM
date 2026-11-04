@@ -1,5 +1,23 @@
 # OpenHSM
-An open source HSM that supports secp256k1, ECDSA, BIP-340 Schnorr and Ed25519. We're sticking it to them and saving millions in the process. Currently Pre-Alpha project status.
+
+An open-source, DIY hardware security module designed to run as a redundant cluster for high-throughput crypto wallet signing.
+
+OpenVault is a reference design for building your own HSM cluster from off-the-shelf parts. It includes open hardware, open firmware and reproducible builds. A six-node cluster across two sites sustains **1,000 signed transfers per second** even with a whole site offline, and each node holds **10,000 wallets** derived from a single root seed.
+
+## Highlights
+
+- **Keys never leave the secure world.** Signing runs inside OP-TEE on an NXP i.MX 8M Plus. An NXP SE050 secure element and a battery-backed STM32U5 tamper supervisor each hold half of the node's unwrap key.
+- **Active tamper response.** A mesh enclosure, lid switches, a light sensor and an accelerometer trigger hardware erasure of the unwrap secret.
+- **Built for failure.** Raft replication with a keyless witness at a third site. Failover takes under 5 s, and the cluster survives the loss of a full site.
+- **Policy enforced on the HSM.** Per-wallet spending caps, allow-lists and leased daily limits stop a compromised application server from draining funds.
+- **Layered backup.** Live replicas, encrypted off-site snapshots, and a root seed split 3-of-5 with SLIP-39.
+- **Multi-chain.** Supports secp256k1 ECDSA, BIP-340 Schnorr and Ed25519, covering Bitcoin, Ethereum and EVM chains, Solana, Cosmos and more.
+
+## What's in this repo
+
+Schematics and signal-level netlists, a full bill of materials, cluster architecture, capacity maths, the key hierarchy and ceremony, disaster-recovery runbooks, and a build and test checklist.
+
+> **Note:** OpenVault is not FIPS 140-3 or Common Criteria certified. Where regulation or insurance requires certified key storage, use it for development or lower-value hot wallets, or keep the root seed in a certified device. Benchmark on your own hardware before going live.
 
 ![OpenHSM Site Architecture](./OpenHSM_Site_Architecture.png)
 
