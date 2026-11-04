@@ -1,5 +1,5 @@
 # OpenHSM
-An open source HSM that supports secp256k1, ECDSA, BIP-340 Schnorr and Ed25519. We're sticking it to them and saving millions in the process.
+An open source HSM that supports secp256k1, ECDSA, BIP-340 Schnorr and Ed25519. We're sticking it to them and saving millions in the process. Currently Pre-Alpha project status.
 
 ![OpenHSM Architecture](./OpenHSM_Architecture.png)
 
@@ -24,7 +24,7 @@ An open source HSM that supports secp256k1, ECDSA, BIP-340 Schnorr and Ed25519. 
 | 1 | Custom carrier PCB, 6-layer | Section 5 |
 | 1 | [NXP SE050 (AES + P-256 variant)](https://www.mouser.co.uk/en/ProductDetail/NXP-Semiconductors/SE050C1HQ1-Z01SCZ?qs=uwxL4vQweFPAe9Cpm7Fm%252BQ%3D%3D) | 5.3 |
 | 1 | [STM32U5, LQFP64, not U575/585 rev X](https://www.mouser.co.uk/en/ProductDetail/STMicroelectronics/STM32U595RJT6Q?qs=sGAEpiMZZMuI9neUTtPr757IDD%2FwidVOeNx%252BK87m1RZ2F32QVOiwxQ%3D%3D) | Tamper Supervisor |
-| 1 | Low-power 3-axis accelerometer | Tamper: movement |
+| 1 | [Low-power 3-axis accelerometer](https://www.mouser.co.uk/en/ProductDetail/STMicroelectronics/AIS328DQTR?qs=LYO3r17CQdPWOQ2wXNVBxw%3D%3D) | Tamper: movement |
 | 1 | Photodiode + comparator | Tamper: light |
 | 2 | Normally-closed microswitch | Tamper: lid |
 | 1 | Mesh flex PCB, 4 serpentine pairs, 0.15 mm |Wraps the inner can |
