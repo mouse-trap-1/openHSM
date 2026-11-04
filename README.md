@@ -3,7 +3,7 @@ An open source HMS that supports secp256k1, ECDSA, BIP-340 Schnorr and Ed25519. 
 
 ![OpenHSM Architecture](./OpenHSM_Architecture.png)
 
-# Architecture
+# System Requirements
 
 | Target | Value |
 |--------|-------|
