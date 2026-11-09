@@ -16,7 +16,8 @@ module ecdsa_ucode_rom (
     //   INVP_STEP  = 66
     //   INVN_STEP  = 69
     //   AFFINE     = 72
-    //   SIGN       = 75
+    //   AFFINE_Y   = 75
+    //   SIGN       = 77
 
     always @(*) begin
         case (addr)
@@ -100,16 +101,19 @@ module ecdsa_ucode_rom (
             9'd70: instr = 18'h1EF3A; // TMP = ACC * BASE  (mod n)
             9'd71: instr = 18'h00000; // END
             // ---- AFFINE ----
-            9'd72: instr = 18'h17019; // T5 = X0 * ACC  (mod p)
-            9'd73: instr = 18'h2DF93; // R = T5 + ZERO  (mod n)
+            9'd72: instr = 18'h17419; // XA = X0 * ACC  (mod p)
+            9'd73: instr = 18'h2DFB3; // R = XA + ZERO  (mod n)
             9'd74: instr = 18'h00000; // END
+            // ---- AFFINE_Y ----
+            9'd75: instr = 18'h17839; // YA = Y0 * ACC  (mod p)
+            9'd76: instr = 18'h00000; // END
             // ---- SIGN ----
-            9'd75: instr = 18'h19EF5; // t1 = R * D  (mod n)
-            9'd76: instr = 18'h2DAD3; // H = H + ZERO  (mod n)
-            9'd77: instr = 18'h2A2C7; // t2 = H + t1  (mod n)
-            9'd78: instr = 18'h1E328; // S = ACC * t2  (mod n)
-            9'd79: instr = 18'h3F278; // T5 = ZERO - S  (mod n)
-            9'd80: instr = 18'h00000; // END
+            9'd77: instr = 18'h19EF5; // t1 = R * D  (mod n)
+            9'd78: instr = 18'h2DAD3; // H = H + ZERO  (mod n)
+            9'd79: instr = 18'h2A2C7; // t2 = H + t1  (mod n)
+            9'd80: instr = 18'h1E328; // S = ACC * t2  (mod n)
+            9'd81: instr = 18'h3F278; // T5 = ZERO - S  (mod n)
+            9'd82: instr = 18'h00000; // END
             default: instr = 18'h00000;
         endcase
     end

@@ -35,7 +35,9 @@ module ecdsa_secp256k1_sign #(
 ) (
     input  wire         clk,
     input  wire         rst_n,
+    input  wire         wipe,        // synchronous: abort and clear every register
     input  wire         start,
+    input  wire         mode_pub,    // 1: compute public key d*G (k_in must equal d_in)
     input  wire [255:0] d_in,
     input  wire [255:0] k_in,
     input  wire [255:0] z_in,
@@ -43,7 +45,9 @@ module ecdsa_secp256k1_sign #(
     output reg          done,
     output reg          fail,
     output wire [255:0] r_out,
-    output wire [255:0] s_out
+    output wire [255:0] s_out,
+    output wire [255:0] px_out,      // public key x (valid after a mode_pub run)
+    output wire [255:0] py_out       // public key y
 );
     // ------------------------------------------------------------ curve ---
     localparam [255:0] P      = 256'hFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F;
@@ -83,6 +87,7 @@ module ecdsa_secp256k1_sign #(
     reg [7:0] idx2;         // inversion exponent bit index
     reg       invmod;       // 0: inversion mod p, 1: mod n
     reg [4:0] dst_r;        // destination of the multiply in flight
+    reg       mp;           // latched mode_pub
 
     // ----------------------------------------------- micro-op decode ------
     wire [17:0] instr;
@@ -109,7 +114,7 @@ module ecdsa_secp256k1_sign #(
     wire        mm_busy, mm_done;
     wire [255:0] mm_res;
     modmul_serial u_mul (
-        .clk(clk), .start(mul_start),
+        .clk(clk), .wipe(wipe), .start(mul_start),
         .a(ea), .b(eb), .m(em),
         .busy(mm_busy), .done(mm_done), .result(mm_res)
     );
@@ -122,13 +127,19 @@ module ecdsa_secp256k1_sign #(
     wire [255:0] s_cur  = rf[I_S];
     wire [255:0] s_fin  = (LOW_S != 0 && s_cur > HALF_N) ? rf[I_T5] : s_cur;
 
-    assign r_out = fail ? 256'd0 : rf[I_R];
-    assign s_out = fail ? 256'd0 : rf[I_S];
+    assign r_out  = fail ? 256'd0 : rf[I_R];
+    assign s_out  = fail ? 256'd0 : rf[I_S];
+    assign px_out = rf[I_XA];
+    assign py_out = rf[I_YA];
 
     // ----------------------------------------------------- sequencer ------
     always @(posedge clk) begin
         done <= 1'b0;
-        if (!rst_n) begin
+        if (wipe) begin
+            for (ii = 0; ii < 32; ii = ii + 1) rf[ii] <= 256'd0;
+            st <= ST_IDLE; busy <= 1'b0; fail <= 1'b0; pc <= 9'd0;
+            idx <= 8'd0; idx2 <= 8'd0; invmod <= 1'b0; mp <= 1'b0;
+        end else if (!rst_n) begin
             st <= ST_IDLE; busy <= 1'b0; fail <= 1'b0; pc <= 9'd0;
         end else begin
             case (st)
@@ -144,6 +155,7 @@ module ecdsa_secp256k1_sign #(
                 rf[I_ZERO] <= 256'd0;
                 fail       <= 1'b0;
                 busy       <= 1'b1;
+                mp         <= mode_pub;
                 idx        <= 8'd255;
                 if (k_bad || d_bad) begin
                     fail <= 1'b1;
@@ -216,7 +228,11 @@ module ecdsa_secp256k1_sign #(
                 end
             end
             ST_CHECK_R: begin
-                if (rf[I_R] == 256'd0) begin
+                if (mp) begin                // public-key mode: also need affine y
+                    pc  <= A_AFFINE_Y;
+                    ret <= ST_FINISH;
+                    st  <= ST_FETCH;
+                end else if (rf[I_R] == 256'd0) begin
                     fail <= 1'b1;
                     st   <= ST_FINISH;
                 end else begin
@@ -260,6 +276,6 @@ module ecdsa_secp256k1_sign #(
 
     initial begin
         st = ST_IDLE; busy = 1'b0; done = 1'b0; fail = 1'b0; pc = 9'd0;
-        ret = ST_IDLE; idx = 8'd0; idx2 = 8'd0; invmod = 1'b0; dst_r = 5'd0;
+        ret = ST_IDLE; idx = 8'd0; idx2 = 8'd0; invmod = 1'b0; dst_r = 5'd0; mp = 1'b0;
     end
 endmodule

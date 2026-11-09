@@ -10,17 +10,34 @@
 module tb_ecdsa_sign;
     reg          clk = 0;
     reg          rst_n = 0;
-    reg          start = 0;
+    reg          start = 0, mode_pub = 0;
     reg  [255:0] d_in = 0, k_in = 0, z_in = 0;
     wire         busy, done, fail;
-    wire [255:0] r_out, s_out;
+    wire [255:0] r_out, s_out, px_out, py_out;
 
     ecdsa_secp256k1_sign #(.LOW_S(1)) dut (
-        .clk(clk), .rst_n(rst_n), .start(start),
+        .clk(clk), .rst_n(rst_n), .wipe(1'b0), .start(start), .mode_pub(mode_pub),
         .d_in(d_in), .k_in(k_in), .z_in(z_in),
         .busy(busy), .done(done), .fail(fail),
-        .r_out(r_out), .s_out(s_out)
+        .r_out(r_out), .s_out(s_out), .px_out(px_out), .py_out(py_out)
     );
+
+    // public-key mode: k_in must equal d_in
+    task run_pub(input [255:0] d, input [255:0] ex, input [255:0] ey);
+        begin
+            @(posedge clk);
+            d_in <= d; k_in <= d; z_in <= 0; mode_pub <= 1'b1; start <= 1'b1;
+            @(posedge clk);
+            start <= 1'b0;
+            cycles = 0;
+            while (!done && cycles < 4000000) begin @(posedge clk); cycles = cycles + 1; end
+            mode_pub <= 1'b0;
+            if (!done || fail || px_out !== ex || py_out !== ey) begin
+                errors = errors + 1;
+                $display("FAIL pubkey d=%h\n  x got %h\n  x exp %h\n  y got %h\n  y exp %h", d, px_out, ex, py_out, ey);
+            end else $display("PASS pubkey d=%h...  (%0d cycles)", d[63:0], cycles);
+        end
+    endtask
 
     always #5 clk = ~clk;
 
@@ -84,6 +101,9 @@ module tb_ecdsa_sign;
                 $display("PASS vec %0d  (%0d cycles)  r=%h", v, cycles, r_out);
             end
         end
+
+        // ---- public key mode ----
+        `include "tb_core_pub.vh"
 
         if (errors == 0) $display("ALL TESTS PASSED");
         else             $display("%0d TEST(S) FAILED", errors);

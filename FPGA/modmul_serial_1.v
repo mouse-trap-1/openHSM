@@ -13,6 +13,7 @@
 //------------------------------------------------------------------------------
 module modmul_serial (
     input  wire         clk,
+    input  wire         wipe,           // synchronous clear of all operand/result state
     input  wire         start,          // pulse; ignored while busy
     input  wire [255:0] a,
     input  wire [255:0] b,
@@ -43,7 +44,10 @@ module modmul_serial (
 
     always @(posedge clk) begin
         done <= 1'b0;
-        if (!busy) begin
+        if (wipe) begin
+            a_sh <= 256'd0; b_r <= 256'd0; m_r <= 256'd0; acc <= 256'd0;
+            result <= 256'd0; cnt <= 8'd0; busy <= 1'b0;
+        end else if (!busy) begin
             if (start) begin
                 a_sh <= a;
                 b_r  <= b;
