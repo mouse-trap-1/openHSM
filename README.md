@@ -74,7 +74,8 @@ python3 pentest/run.py && python3 pentest/report.py
 |----------|----------|
 | [Getting started](docs/GETTING_STARTED.md) | Build, demo, manual walkthrough |
 | [System design](docs/SYSTEM_DESIGN.md) | Architecture, key hierarchy, design decisions |
-| [System specification](docs/SYSTEM_SPECIFICATION.md) | Interfaces, protocol, policy rules |
+| [System specification](docs/SYSTEM_SPECIFICATION.md) | Required behaviour, protocol, policy rules |
+| [Interface control document](docs/INTERFACE_CONTROL_DOCUMENT.md) | Every interface: API, module bus, supervisor, cards, storage, files |
 | [Threat model](docs/THREAT_MODEL.md) | Attackers, objectives, residual risks |
 | [Penetration test report](docs/PENETRATION_TEST_REPORT.md) | 68 simulated attacks, methods and results |
 | [Compliance mapping](docs/COMPLIANCE.md) | Standards and regulations, gap by gap |

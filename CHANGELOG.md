@@ -14,7 +14,7 @@ First system-level prototype: the whole signing node in software.
 - `hsmctl`: PKI, identities, genesis, quorum propose/approve/submit, offline audit verification, software operator cards.
 - KEK lifecycle through the API: generate, seal, ECIES enrolment, split to operator cards, break-glass restore, rotation.
 - `pentest/`: 68 simulated attacks in 7 suites, with independent verification code.
-- Documentation: system design, system specification, threat model, penetration test report, compliance mapping.
+- Documentation: system design, system specification, interface control document, threat model, penetration test report, compliance mapping.
 - Project files: `SECURITY.md`, `CONTRIBUTING.md`, CI workflow, Dependabot, `Makefile`.
 
 ### Security

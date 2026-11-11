@@ -1,6 +1,6 @@
 # OpenHSM System Design
 
-Version 0.5.0 (prototype). Companion documents: [System Specification](SYSTEM_SPECIFICATION.md), [Threat Model](THREAT_MODEL.md), [Penetration Test Report](PENETRATION_TEST_REPORT.md), [Compliance Mapping](COMPLIANCE.md). The FPGA signing module has its own specification in [`FPGA/README.md`](../FPGA/README.md).
+Version 0.5.0 (prototype). Companion documents: [System Specification](SYSTEM_SPECIFICATION.md), [Interface Control Document](INTERFACE_CONTROL_DOCUMENT.md), [Threat Model](THREAT_MODEL.md), [Penetration Test Report](PENETRATION_TEST_REPORT.md), [Compliance Mapping](COMPLIANCE.md). The FPGA signing module has its own specification in [`FPGA/README.md`](../FPGA/README.md).
 
 This document explains how the prototype is put together and why. The specification says exactly what each interface does.
 

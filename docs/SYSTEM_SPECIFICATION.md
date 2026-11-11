@@ -1,6 +1,6 @@
 # OpenHSM System Specification
 
-Version 0.5.0 (prototype). This document specifies the node as built: interfaces, formats, cryptographic constructions and required behaviour. The reasons are in the [System Design](SYSTEM_DESIGN.md). The signing module's own specification is [`FPGA/README.md`](../FPGA/README.md); section 3 here lists only what the prototype adds to it.
+Version 0.5.0 (prototype). This document specifies the node as built: interfaces, formats, cryptographic constructions and required behaviour. The reasons are in the [System Design](SYSTEM_DESIGN.md). Every interface is listed in one place in the [Interface Control Document](INTERFACE_CONTROL_DOCUMENT.md). The signing module's own specification is [`FPGA/README.md`](../FPGA/README.md); section 3 here lists only what the prototype adds to it.
 
 Requirement identifiers (`REQ-…`) are referenced by the tests and the compliance mapping.
 
