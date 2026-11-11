@@ -11,9 +11,9 @@ Status words: **Implemented** means working code in this repository. **Modelled*
 | ID | Interface | Between | Medium in the product | In the prototype | Status |
 | --- | --- | --- | --- | --- | --- |
 | IF-01 | Node API | Application servers, operators ↔ SoC | TLS 1.3 over Ethernet (client port) | TLS 1.3 over TCP | Implemented |
-| IF-02 | Signing module bus | SoC ↔ FPGA signing module | I2C, slave address 0x48 | Register reads and writes carried by IF-05 | RTL (0xB1); Modelled (0xB2) |
+| IF-02 | Signing module bus | SoC ↔ FPGA signing module | I2C, slave address 0x48 | Register reads and writes carried by IF-05 | RTL (0xB2, `FPGA/V0.5`) and model |
 | IF-03 | Tamper secret delivery | Supervisor → signing module | Receive-only SPI | Function call inside the enclosure model | RTL; supervisor side Modelled |
-| IF-04 | Module discrete signals | Supervisor, board → signing module | Tamper line, ceremony pin, clock, reset, LEDs | Model inputs | RTL except the ceremony pin (Modelled) |
+| IF-04 | Module discrete signals | Supervisor, board → signing module | Tamper line, ceremony pin, clock, reset, LEDs | Model inputs | RTL |
 | IF-05 | Supervisor services | SoC ↔ tamper supervisor | Open (board-level link not chosen) | Unix socket, binary RPC | Modelled; physical link Open |
 | IF-06 | Sensors and key-switch | Physical world → supervisor | Mesh, lid switches, photodiode, accelerometer, voltage, temperature, key-switch | Physical-simulation socket | Modelled |
 | IF-07 | Operator card | Operator's YubiKey ↔ SoC | USB CCID reader on the front panel | `ykman` call, or a file in `cardslot/` | Implemented with software cards; YubiKey path untested |
@@ -163,7 +163,7 @@ A plain request repeated with the same principal, nonce and body returns the sto
 
 ## 3. IF-02 Signing module bus
 
-The only data path into the signing module. Source: `FPGA/V0.4/sign_node_top.v` (protocol 0xB1), `crates/openhsm-signer/src/lib.rs` (protocol 0xB2).
+The only data path into the signing module. Source: `FPGA/V0.5/sign_node_top.v` and `crates/openhsm-signer/src/lib.rs` (both protocol 0xB2). `FPGA/V0.4` is the earlier protocol 0xB1, which lacks RMAC, the lockout, commands 0x56 and 0x57 and the ceremony pin.
 
 ### 3.1 Electrical and framing
 
@@ -176,7 +176,7 @@ I2C slave, 7-bit address 0x48 by default. Single-byte register pointer that auto
 | 0x00 | STATUS | R | 1 | b0 busy, b1 done, b2 error, b3 KEK loaded, b4 tamper, b5 TRNG fail, b6 session up, b7 enrolment key |
 | 0x01 | CMD | W | 1 | Writing starts the command |
 | 0x02 | ERROR | R | 1 | Error code of the last command |
-| 0x03 | STATUS2 | R | 1 | b6 slot-2 KEK, b5 sharing active, b3:0 shares held |
+| 0x03 | STATUS2 | R | 1 | b7 command channel locked, b6 slot-2 KEK, b5 sharing active, b4 ceremony pin, b3:0 shares held |
 | 0x04 | CTR | W | 4 | Strictly increasing counter |
 | 0x08 | NONCE | R | 16 | Random per session |
 | 0x18 | WID | R/W | 16 | Wallet id (AAD) or share header |
@@ -186,18 +186,18 @@ I2C slave, 7-bit address 0x48 by default. Single-byte register pointer that auto
 | 0x64 | BUF_B | R/W | 32 | Digest, s, public y, point x, or card secret |
 | 0x84 | BUF_C | R/W | 32 | Point y |
 | 0xA4 | MAC | W | 32 | Command MAC |
-| 0xC4 | RMAC | R | 32 | Response MAC (0xB2 only) |
-| 0xFF | VERSION | R | 1 | 0xB1 on the RTL, 0xB2 on the model |
+| 0xC4 | RMAC | R | 32 | Response MAC |
+| 0xFF | VERSION | R | 1 | 0xB2 |
 
 ### 3.3 Authentication
 
 ```
 command MAC  = HMAC-SHA256(chan_key, nonce(16) ‖ ctr(4) ‖ cmd(1) ‖ WID ‖ IV ‖ TAG ‖ A ‖ B ‖ C)      161 bytes
 response MAC = HMAC-SHA256(chan_key, "SN-RESP-v1" ‖ nonce(16) ‖ ctr(4) ‖ cmd(1) ‖ error(1)
-                                     ‖ WID ‖ IV ‖ TAG ‖ A ‖ B ‖ C)                               0xB2 only
+                                     ‖ WID ‖ IV ‖ TAG ‖ A ‖ B ‖ C)                               172 bytes
 ```
 
-Every command needs a valid MAC and a counter greater than the last accepted one. In 0xB2, eight consecutive failures lock the channel until reset, any error clears IV, TAG, A, B and C, and the MAC register is cleared after every command.
+Every command needs a valid MAC and a counter greater than the last accepted one. Eight consecutive failures lock the channel until reset, any error clears IV, TAG, A, B and C, and the MAC register is cleared after every command. A command that fails authentication produces no response MAC; RMAC then reads as zero.
 
 ### 3.4 Commands
 
@@ -223,10 +223,10 @@ Every command needs a valid MAC and a counter greater than the last accepted one
 | 0x53 ⚿ | SHARE_PUT | WID = header, IV, TAG, A, B = card secret | Share stored |
 | 0x54 ⚿ | RESTORE | none | KEK rebuilt and loaded |
 | 0x55 | RESTORE_ABORT | none | Stored shares discarded |
-| 0x56 ⚿ | SHARE_GET_C (0xB2) | As 0x51, with B masked | As 0x51 |
-| 0x57 ⚿ | SHARE_PUT_C (0xB2) | As 0x53, with B masked | As 0x53 |
+| 0x56 ⚿ | SHARE_GET_C | As 0x51, with B masked | As 0x51 |
+| 0x57 ⚿ | SHARE_PUT_C | As 0x53, with B masked | As 0x53 |
 
-⚿ In 0xB2 these return error 8 unless the ceremony pin (IF-04) is high. The mask for 0x56 and 0x57 is `HMAC-SHA256(chan_key, "SN-CONF-v1" ‖ nonce ‖ ctr)` XORed onto BUF_B. The node uses 0x56 and 0x57 and never 0x51 or 0x53.
+⚿ These return error 8 unless the ceremony pin (IF-04) is high. The mask for 0x56 and 0x57 is `HMAC-SHA256(chan_key, "SN-CONF-v1" ‖ nonce ‖ ctr)` XORed onto BUF_B. The node uses 0x56 and 0x57 and never 0x51 or 0x53.
 
 ### 3.5 Error codes
 
@@ -247,7 +247,7 @@ Every command needs a valid MAC and a counter greater than the last accepted one
 | --- | --- | --- |
 | SPI (SCLK, MOSI, CS) | Supervisor → module | Mode 0, MSB first, no MISO. One 33-byte frame: 0xA5, then the 32-byte tamper secret S. A wrong header or length is discarded. Accepted once per reset. System clock at least 4 times SCLK |
 | `tamper` | Supervisor → module | Active high, asynchronous. Zeroes the secret store, sharing state and engine registers at once and latches until reset. Hold high while the fault lasts |
-| `ceremony` | Supervisor → module | Level input driven from the physical key-switch. Low disables the commands marked ⚿ in section 3.4. Defined in 0xB2 only; not yet in the RTL |
+| `ceremony` | Supervisor → module | Level input driven from the physical key-switch. Low disables the commands marked ⚿ in section 3.4. Must not be routed to the SoC |
 | Clock, reset | Board → module | Reset clears the session; S must be sent again |
 | `led_busy`, `led_kek`, `led_tamper` | Module → front panel | Status indicators |
 
@@ -428,3 +428,4 @@ What sensitive material is allowed to cross each interface. The penetration test
 | Version | Change |
 | --- | --- |
 | 0.5.0 | First interface control document, written from the 0.5.0 code and `FPGA/README.md`. |
+| 0.5.1 | Protocol 0xB2 is in the RTL from `FPGA/V0.5`: IF-02 and IF-04 status, register map and notes updated. |

@@ -1,0 +1,71 @@
+PASS: error code 1 as expected
+PASS: no session after power-up
+S0=1111111111111111222222222222222233333333333333334444444444444444
+S1=a0a0a0a0a0a0a0a0b1b1b1b1b1b1b1b1c2c2c2c2c2c2c2c2d3d3d3d3d3d3d3d3
+NONCE0=5b182f1bb4cad3bcb9b27a58f2777980
+PASS: node A session established from SPI secret
+PASS: chan_key matches HMAC(S, SN-CHAN)
+PASS: per-session nonce generated
+PASS: S cleared from the SPI receiver after use
+PASS: error code 5 as expected
+PASS: bad MAC: command not executed
+PASS: error code 0 as expected
+PASS: KEK_GEN: cluster KEK created on node A
+KEK=20a9d61254855550b23e27dbe32015594f74c96fa36192c275cbf0b6e9ba39ee
+PASS: error code 5 as expected
+PASS: replayed command rejected, KEK intact
+PASS: error code 3 as expected
+PASS: error code 0 as expected
+SEAL iv=c58344b40fd2ed35aac3720e tag=2e6146910d0e3eae9c747b9f931f00c2 ct=1633df16ae21b9a97b57c244170a896e77f16513cf31bf4c0f9135b88fe24c09
+PASS: error code 0 as expected
+WALLET wid=00112233445566778899aabbccddeeff iv=971f422bf63667c40a48c14f tag=c03389368febec9e16ad6b45834034ee ct=4692c2681e1d8d54536fec8a52b9456f248bca3da985a0cd2f7e729e9d6b3493
+PUBX=1cad65cf0bc93e6fc79a6390c110e1372b4a45f8e718d6b6006f85adfc5d9c8c
+PUBY=e86d479357fa230bd9512712eaedb47f4cf783aaa5c84b42c211c69297bd6726
+PASS: error code 0 as expected
+HASH=2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824
+SIG1 r=709e855f7fbbac22ec4bea12344caf1e63d4a5df4986bc51b1c44760eb6ba3a1
+SIG1 s=47139bc5158a11c55ca600f842cb016452210fdbca1aa02e30d0f4c4be60c856
+PASS: error code 0 as expected
+SIG2 r=13fdea911edcc627e8d732cba472a107b1689a290e127fcc1d4129553e4c4da6
+SIG2 s=209dbb4f04b13d77de6cf51237b45d63331c91071919fb0b4bd13dd7a2d190e5
+PASS: edged nonce: two signatures of one digest differ
+PASS: error code 10 as expected
+PASS: error code 10 as expected
+PASS: error code 10 as expected
+PASS: failed unwrap leaves no key material behind
+PASS: error code 2 as expected
+PASS: error code 12 as expected
+PASS: error code 0 as expected
+ENROL ex=28ee5fc67bdc0c7e1d5baffa1e91bf3941e7b20b5daff98a238c969f4a82d620 ey=05b2510738c573b686dd2e7fba9c825cd54fa0ebd6f78945b79558e220a434f8
+ENROLD=b66f5a75e2035aaf37fc4a4212f548dd2daded2157f2cd711bed1f30b637b00c
+PASS: node B holds an enrolment key
+PASS: error code 11 as expected
+PASS: error code 0 as expected
+ECIES T.x=9bc64435eeb01307245f2205195cff1c0679e1a95e082ad104db5be98a5b4567
+ECIES T.y=460a41d4a6f2a0452bca62c5941f1bdbf1c6136ef51dabd23c655a1bf043b1ad
+ECIES iv=740ed93c25c3407b5e86531d ct=7f884f80c7b3f66fb611acd94e25334b5383ac39a1ed7f13aae07e4e223328b7 tag=54cf4511f96e0c4ba94342a78c6e3a8e
+PASS: error code 10 as expected
+PASS: corrupted ECIES blob rejected, no KEK loaded
+PASS: error code 0 as expected
+PASS: ECIES: node B received the identical cluster KEK
+PASS: enrolment key destroyed after import
+PASS: error code 0 as expected
+SIGB r=76c3e2f778ebcdeecbd10ae4a7beab2947a6a9ae002ea6ca06084a160415b7c8
+SIGB s=61ef828f0cb937ac16f9967081d5eb1f7634fa693ac60076699fc58c186d1faf
+PASS: error code 0 as expected
+SEALB iv=c382558931d2a07c71dfcb3c tag=ba3b3efec964261b3627e51d68a0e5c0 ct=a5b65731a32a7684dd4e5254ce4f19b1663c354ea1ce82606337356c58fec290
+PASS: power cycle: KEK gone from node B
+PASS: error code 0 as expected
+PASS: sealed KEK restored after reboot (same S)
+PASS: error code 10 as expected
+PASS: different S cannot unseal the KEK
+PASS: error code 0 as expected
+PASS: signing in progress before tamper
+PASS: amper: KEK and channel keys zeroized immediately
+PASS: tamper: signer aborted
+PASS: : unwrapped key, nonce, GCM and HMAC state wiped
+PASS: tamper flag set, KEK not present
+PASS: error code 7 as expected
+PASS: module stays locked after tamper
+ALL NODE SYSTEM TESTS PASSED
+tb_node_system.v:362: $finish called at 282859550000 (1ps)

@@ -12,7 +12,7 @@ The prototype is the complete node in software, split into the same parts as the
 
 | Part of the real node | In this prototype | Status |
 | --- | --- | --- |
-| FPGA signing module (replaces the NXP SE050 on I2C) | `openhsm-signer`: a register-level model of `FPGA/V0.4/sign_node_top.v` | Functional model; the RTL is the reference |
+| FPGA signing module (replaces the NXP SE050 on I2C) | `openhsm-signer`: a register-level model of `FPGA/V0.5/sign_node_top.v` (protocol 0xB2) | Functional model; the RTL is the reference |
 | STM32U5 tamper supervisor, sensors, key-switch | `openhsm-hw`: supervisor model, run as its own process (`openhsm-hwsim`) | Model; firmware not written |
 | i.MX 8M Plus SoC (API, policy, storage, cluster logic) | `openhsm-node` (`openhsmd`) | Working code, runs on Linux |
 | Operator workstation | `hsmctl` | Working code |
@@ -112,7 +112,7 @@ KEK (cluster key-encryption key, module volatile registers)
 
 The FPGA host driver in `FPGA/V0.4/sn_host.py` is given S. With S the SoC can derive `seal_key`, open the sealed KEK on its own disk, and decrypt every wallet key without the module. That defeats decision D3 for anyone who compromises the SoC. Penetration test A-14 demonstrates it against protocol 0xB1.
 
-The prototype moves the derivation into the supervisor. The SoC receives `chan_key` (it must, to send commands) and a separate `soc_seal` for its own secrets. It cannot compute `seal_key`. This needs a small change in the supervisor firmware and none in the RTL.
+The prototype moves the derivation into the supervisor. The SoC receives `chan_key` (it must, to send commands) and a separate `soc_seal` for its own secrets. It cannot compute `seal_key`. This needs a small change in the supervisor firmware and none in the RTL. The V0.5 host driver (`FPGA/V0.5/sn_host.py`) takes `chan_key` instead of S.
 
 ### 5.2 One KEK for all wallets
 
@@ -162,13 +162,13 @@ At boot the node verifies every signature and link, compares the last sequence n
 | Area | Gap | Consequence |
 | --- | --- | --- |
 | Hardware | The FPGA is simulated RTL, not synthesised; the supervisor firmware and carrier board do not exist | No claim about physical security, side channels, faults or real entropy can be tested yet |
-| Module protocol | Extensions X1 to X6 exist in the model only | They must be back-ported to the RTL before the model and the FPGA agree |
+| Module protocol | Extensions X1 to X6 are in the RTL from `FPGA/V0.5` and pass simulation, but the RTL and the model have not been run against each other command by command | A co-simulation of the two is still needed. The RTL also randomises the start point of each scalar multiplication, which the model does not need |
 | Secure world | `openhsmd` is one Linux process | The secure/normal world split is a module boundary, not OP-TEE isolation |
 | Policy location | Policy is enforced by the SoC, not the module | A full SoC compromise can request signatures on arbitrary digests (residual risk R-1) |
 | Clustering | Wallets replicate by signed snapshot export and import; there is no Raft, leader election or automatic failover | The README's availability targets are not met by this prototype |
 | Chains | secp256k1 ECDSA only: Ethereum (legacy, EIP-1559, ERC-20 transfer) and Bitcoin P2WPKH | No Taproot/Schnorr, no Ed25519 chains, no PSBT, no EIP-712 |
 | Cards | YubiKey responder is exercised with software cards only | Needs a drill with real cards |
-| Performance | Not measured on target hardware | The 55 signatures per second target is unverified |
+| Performance | Not measured on target hardware. Verify-before-release (X3) roughly doubles the time of a signature in the RTL | The 55 signatures per second target is unverified, and is not met at 100 MHz with X3 enabled (see `FPGA/README.md` section 9) |
 | Assurance | No independent review, no formal verification, no certification | See [COMPLIANCE.md](COMPLIANCE.md) |
 
 ## 10. Change log of this document
@@ -176,3 +176,4 @@ At boot the node verifies every signature and link, compares the last sequence n
 | Version | Change |
 | --- | --- |
 | 0.5.0 | First system-level design: node software, enclosure model, protocol extensions X1 to X6, policy engine, audit chain. Dependencies moved to k256 0.14 after RUSTSEC-2026-0387; `rustls-pemfile` removed (unmaintained). |
+| 0.5.1 | X1 to X6 back-ported to the RTL (`FPGA/V0.5`); gaps table updated. |

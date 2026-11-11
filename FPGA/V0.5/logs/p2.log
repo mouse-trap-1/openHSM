@@ -1,0 +1,81 @@
+S0=1111111111111111222222222222222233333333333333334444444444444444
+S0B=5555555555555555666666666666666677777777777777778888888888888888
+S1=a0a0a0a0a0a0a0a0b1b1b1b1b1b1b1b1c2c2c2c2c2c2c2c2d3d3d3d3d3d3d3d3
+PASS: error code 0 as expected
+KEK=71ac5641397053e98a1880c07eca5eedcb37bd08f2083ccf2d09b29d15cfb7b5
+PASS: error code 0 as expected
+FP=826e436753cf8e244b4de379de0176862e30a3f9b5a7130444062d82198ca132
+PASS: error code 0 as expected
+WALLET wid=00112233445566778899aabbccddeeff iv=8918f50d80b8692187842594 tag=c4e3350c04ef1a1683cf8be367c6f837 ct=a87137f0cd0ce632226b7aba17c24ade0eef2a5519b7f9c5fb22142f90b91ea8
+PUBX=d8d6fb489a1491c8d031548b105183b2dac5345024aff0ba77f2600b0d369bb5
+PUBY=aa9356fed2d375fe801d1939da2903619da5b501b9c80b8f2dd8c759bc6ed4eb
+PASS: error code 0 as expected
+PASS: SPLIT_BEGIN: sharing polynomial active
+TEMPLATE=000305826e436753cf8e244b4de379de
+PASS: error code 0 as expected
+SHARE x=1 hdr=010305826e436753cf8e244b4de379de iv=d0f38b4f4d9c865c93c48027 tag=ac47187657ad961cf4bbf0b4523fcfa4 ct=dfb98743ea287b5eacb7f326e6b5c9a9154f835799b1ca6d246a1a191cbf4c19
+PASS: error code 0 as expected
+SHARE x=2 hdr=020305826e436753cf8e244b4de379de iv=24bff42e31972fcd7825de78 tag=b93964bc4c306d35fab7168c7a58bf07 ct=f3151a1df5356a6e73ce578deca56b8037e93ffab283c0016007970a9269f61e
+PASS: error code 0 as expected
+SHARE x=3 hdr=030305826e436753cf8e244b4de379de iv=d4c1a5ac06b302d7395aa6d0 tag=044c7fd606df65676b871ae224cd39b0 ct=11a77226cc2e905669f698080d69f292c3df1e624e268df21c601666cd4fcaf4
+PASS: error code 0 as expected
+SHARE x=4 hdr=040305826e436753cf8e244b4de379de iv=0f4e0c9a000e1b005ffff8e8 tag=b2f3f54636e14497b8e4cc59fee95f3f ct=7b1ccfa95119a4952a8ad55969a9362d3b3b01687d1d0e238a409ed116c2e9dc
+PASS: error code 0 as expected
+SHARE x=5 hdr=050305826e436753cf8e244b4de379de iv=ebf44afd172e3b1309bd98e6 tag=a4e44b431ad69419f6557fd98e553150 ct=08c56f4907ef121e4cf604c0cc037f8b5c0e87abe2bccfd44a52bdc189694ae4
+PASS: error code 13 as expected
+PASS: error code 13 as expected
+PASS: error code 0 as expected
+PASS: error code 14 as expected
+PASS: error code 0 as expected
+PASS: tamper: KEK and channel key zeroized
+PASS: tamper: sharing polynomial wiped
+PASS: r reset: no KEK, new session from a fresh secret
+PASS: error code 14 as expected
+PASS: error code 10 as expected
+PASS: error code 10 as expected
+PASS: error code 0 as expected
+PASS: error code 13 as expected
+PASS: one share held; the duplicate was refused
+PASS: error code 14 as expected
+PASS: error code 0 as expected
+PASS: RESTORE_ABORT discards the shares
+PASS: error code 0 as expected
+PASS: error code 0 as expected
+PASS: error code 0 as expected
+PASS: error code 0 as expected
+PASS: ards rebuild the identical cluster KEK on node A
+PASS: shares scrubbed after restore
+PASS: error code 0 as expected
+HASH=2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824
+SIG1 r=3ae2a5ae0d2a04606a99610d5dc7c799892de8e34b2828d188166b45a307443c
+SIG1 s=018a8b421c3c20516d6f9615d45e44a6540b8d33a0ad1b7e462d5da9c7c98b1e
+PASS: error code 0 as expected
+PASS: error code 0 as expected
+PASS: error code 0 as expected
+PASS: error code 0 as expected
+PASS: es the same KEK from a different subset of cards
+PASS: KEK fingerprints agree between nodes
+PASS: error code 0 as expected
+ENROL ex=9eb6fd96998eaabd0803c5c920c18dc30acd4b99cad6ddc85ca66ce01b02a3db ey=bcc5cef060ba316778de174eff8e2309c1462c273e3a070ee516c903c41b316e
+ENROLD=92941dc94ca6682742202f7fb7659f11e04bcc4b50ecb02672bc70069c3549c4
+PASS: error code 0 as expected
+KEK2=21a017b2db52b3bb844c67053112bf6caaedd6129849854fb01761a0fa87d2a5
+PASS: KEK_NEW_GEN: slot 2 holds a fresh KEK
+PASS: error code 0 as expected
+ECIES T.x=ba74e57f0dc37e7a892e6d6cf32a3cc0fa5f0aeb74abbc1fd6849a9fd481aa8c
+ECIES T.y=e7d5b74e3f35dd224edfc9637e492730d73b6e11217c970b1514efd57f748ef6
+ECIES iv=972657bde36318d404de94fb ct=ebe786a9cce828226d9c43d5b0d760fafeb0b8c3d8e316f5a5b1b0da99309676 tag=dcfd349535171ec656d893cbb7149fe4
+PASS: error code 0 as expected
+PASS: de B holds the new KEK in slot 2, old KEK intact
+PASS: error code 0 as expected
+REWRAP wid=00112233445566778899aabbccddeeff iv=20a61f583fe5e1f52c09f38c tag=459cf87049251fc659fb9261a444dc99 ct=56ec5347dffe3c0da8e45126355ba78cbfc6e4a0e6e9d7d9ab44bf1c5f63b892
+PASS: REWRAP produced a different blob
+PASS: error code 0 as expected
+PASS: error code 0 as expected
+PASS: PROMOTE: both nodes now use the new KEK
+PASS: error code 10 as expected
+PASS: error code 0 as expected
+SIGB r=3d009de6803e938a17fc352ab5da5c40439abbc0f2837f17c9ad87ba61d1affe
+SIGB s=4e0f44d44f89ecd6227a6f4866d956c8379da9e6d2aa31a4e97a23291eb9b94e
+ALL PHASE 2 SYSTEM TESTS PASSED
+tb_phase2.v:335: $finish called at 251696580000 (1ps)

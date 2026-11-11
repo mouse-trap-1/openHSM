@@ -26,7 +26,7 @@ Build: Rust 1.87 or later, `cargo build --release`. No C dependencies beyond tho
 
 ## 3. Signing module protocol 0xB2
 
-The module implements the register map and commands of protocol 0xB1 (`FPGA/README.md` sections 5 to 7) unchanged, so the existing driver `FPGA/V0.4/sn_host.py` works against it (test A-01). `VERSION` (0xFF) reads 0xB2. The additions are:
+The module implements the register map and commands of protocol 0xB1 unchanged, so the earlier driver `FPGA/V0.4/sn_host.py` works against it (test A-01). `VERSION` (0xFF) reads 0xB2. The additions below are implemented in the model and, from `FPGA/V0.5`, in the RTL; `FPGA/README.md` sections 5 to 7 now describe 0xB2 in full.
 
 | Ext. | Requirement | Definition |
 | --- | --- | --- |
@@ -198,3 +198,4 @@ Events recorded: `node_init`, `node_boot`, every successful signature with its s
 | Version | Change |
 | --- | --- |
 | 0.5.0 | First system specification. Adds protocol 0xB2, the supervisor interface, the node API, policy, persistent formats. Offline audit verification now rejects empty logs (penetration test E-05). |
+| 0.5.1 | Protocol 0xB2 is now also in the RTL (`FPGA/V0.5`). |

@@ -26,7 +26,7 @@ To reproduce: `cargo build --release && python3 pentest/run.py && python3 pentes
 ## 1. Conclusions
 
 1. **No attack in scope obtained a wallet key or the KEK from the 0.5.0 node**, and none obtained a signature outside a wallet's policy with the credentials the [threat model](THREAT_MODEL.md) gives each attacker.
-2. **The existing 0xB1 module protocol has two serious design weaknesses**, both demonstrated by recovering the KEK, and one moderate one. All three are closed in the prototype (section 4.1) and need back-porting to the RTL and the supervisor firmware.
+2. **The 0xB1 module protocol of FPGA V0.4 has two serious design weaknesses**, both demonstrated by recovering the KEK, and one moderate one. All three are closed in the prototype (section 4.1). Two are now also closed in the RTL (FPGA V0.5, protocol 0xB2); the third needs the supervisor firmware, which is not written.
 3. **The test campaign found four defects in the prototype itself**, one of them a published timing vulnerability in a cryptographic dependency. All four were fixed and the tests now pass (section 4.2).
 4. **One limitation is structural**: an attacker who fully controls the SoC can request signatures on arbitrary digests, because policy runs on the SoC and the module signs what it is given. The attacker still cannot take any key away. This is residual risk R-1.
 5. **Nothing here is evidence about hardware.** Tamper response, fault injection and entropy failure were tested as logic in a model. Side channels were not tested at all.
@@ -90,10 +90,10 @@ Severity is the tester's judgement of impact on funds if the weakness were prese
 | ID | Severity | Test | Weakness | Demonstration | Fix | Status |
 | --- | --- | --- | --- | --- | --- | --- |
 | PT-01 | High | A-14 | The SoC is given the tamper secret S (`sn_host.py` takes S). It can derive the module's seal key. | From S and the files on the SoC's own disk, the test opened the sealed KEK offline and decrypted a wallet key, matching it to the wallet's public key. No module needed. | The supervisor gives the SoC two derived keys (`chan`, `SOC-SEAL-v1`) and never S. With those the sealed KEK does not open. | Fixed in the model. **Needs supervisor firmware to match.** |
-| PT-02 | High | A-13 | In a split ceremony the card-derived secret crosses I2C in the clear (`SHARE_GET`, 0x51). | A passive probe recorded one 3-of-5 ceremony and rebuilt the KEK from the captured secrets and wrapped shares. | Extension X5: commands 0x56/0x57 mask the secret with a keystream derived from the channel key, nonce and counter. The node uses only these. | Fixed in the model. **Needs RTL back-port.** |
-| PT-03 | Medium | A-10 | Responses are not authenticated in 0xB1. | An active bus device replaced the public key returned by `GEN_WALLET`; a 0xB1 host has no way to notice, and would publish an address the attacker controls. | Extension X1: response MAC over all output buffers; the node also re-derives the public key from the blob before recording a wallet. | Fixed in the model. **Needs RTL back-port.** |
+| PT-02 | High | A-13 | In a split ceremony the card-derived secret crosses I2C in the clear (`SHARE_GET`, 0x51). | A passive probe recorded one 3-of-5 ceremony and rebuilt the KEK from the captured secrets and wrapped shares. | Extension X5: commands 0x56/0x57 mask the secret with a keystream derived from the channel key, nonce and counter. The node uses only these. | Fixed in the model and in the RTL from FPGA V0.5 (simulation: `tb_v05.v`, `verify_v05.py`). |
+| PT-03 | Medium | A-10 | Responses are not authenticated in 0xB1. | An active bus device replaced the public key returned by `GEN_WALLET`; a 0xB1 host has no way to notice, and would publish an address the attacker controls. | Extension X1: response MAC over all output buffers; the node also re-derives the public key from the blob before recording a wallet. | Fixed in the model and in the RTL from FPGA V0.5 (simulation). |
 
-A-13 and A-14 are reported as FINDING on every run on purpose: each test first proves the attack against 0xB1, then proves it fails against 0xB2. They stay red until the RTL is updated.
+A-13 and A-14 are reported as FINDING on every run on purpose: each test first proves the attack against 0xB1, then proves it fails against 0xB2. These tests run against the software model, not the RTL. The RTL's own evidence for X1 to X6 is the V0.5 simulation, which includes injected faults during signing; see `FPGA/V0.5/README.md`.
 
 ### 4.2 Defects found in the prototype during testing, fixed
 
@@ -132,7 +132,7 @@ The exploitability of PT-04 in this code was not measured. It is rated high beca
 ## 6. Next steps
 
 1. Commission an independent review of the RTL, the protocol and this node. Give the reviewers this harness.
-2. Back-port X1 to X6 to `sign_node_top.v` and write the supervisor firmware with derived keys, counter and ceremony pin (closes PT-01 to PT-03 on hardware).
+2. Write the supervisor firmware with derived keys, counter and ceremony pin (closes PT-01 on hardware). X1 to X6 are in the RTL from FPGA V0.5; co-simulate the RTL against the model so the two are proven to agree.
 3. Decide how to close R-1: the options are in the threat model. This is the largest remaining design question.
 4. On the first synthesised board: TVLA-style leakage assessment of the ladder and AES-GCM, glitch campaign against verify-before-release, SP 800-90B entropy assessment, tamper sensor characterisation.
 5. Add the tests this run does not have: coverage-guided fuzzing of the request path (`cargo fuzz`), a restore drill with real YubiKeys, clock-jump behaviour of daily limits (R-7).

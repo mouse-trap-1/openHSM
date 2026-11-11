@@ -2,6 +2,18 @@
 
 All notable changes to the OpenHSM prototype. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). The FPGA design is versioned separately under `FPGA/`.
 
+## [Unreleased]
+
+### Added
+- `FPGA/V0.5`: protocol 0xB2 in the RTL. Response MAC (X1), lockout after 8 failed authentications (X2), verify-before-release (X3), buffer hygiene (X4), confidential card secret (X5), ceremony pin (X6), and a randomised projective start point for every scalar multiplication. New testbench `tb_v05.v` with injected signing faults, and independent checker `verify_v05.py`.
+- `FPGA/V0.5/sn_host.py` checks response MACs, masks card secrets and takes the channel key instead of the tamper secret.
+- `FPGA/V0.5/refmodel.py` and `gen_vectors.py` replace generators that were missing from the repository.
+- `docs/INTERFACE_CONTROL_DOCUMENT.md`.
+
+### Changed
+- `FPGA/README.md` now specifies protocol 0xB2.
+- Design, specification, interface and penetration-test documents updated for the RTL back-port.
+
 ## [0.5.0] - 2026-11-11
 
 First system-level prototype: the whole signing node in software.
