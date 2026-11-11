@@ -24,7 +24,7 @@ serde_json = "1"
 hex = "0.4"
 ed25519-dalek = { version = "2", default-features = false, features = ["std", "zeroize"] }
 rustls = { version = "0.23", default-features = false, features = ["ring", "std", "logging"] }
-rcgen = { version = "0.13", default-features = false, features = ["ring", "pem", "x509-parser"] }
+rcgen = { version = "0.14", default-features = false, features = ["ring", "pem", "x509-parser"] }
 clap = { version = "4", features = ["derive"] }
 
 [profile.release]
