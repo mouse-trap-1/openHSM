@@ -1,0 +1,32 @@
+[package]
+name = "openhsm-node"
+description = "OpenHSM node daemon: authenticated API, policy engine, Ethereum and Bitcoin transaction signing, audit chain"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[[bin]]
+name = "openhsmd"
+path = "src/main.rs"
+
+[dependencies]
+openhsm-signer = { path = "../openhsm-signer" }
+openhsm-hw = { path = "../openhsm-hw" }
+k256.workspace = true
+sha2.workspace = true
+sha3.workspace = true
+ripemd.workspace = true
+hmac.workspace = true
+aes-gcm.workspace = true
+zeroize.workspace = true
+subtle.workspace = true
+getrandom.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+hex.workspace = true
+ed25519-dalek.workspace = true
+rustls.workspace = true
+rcgen.workspace = true
+sha1 = "0.10"

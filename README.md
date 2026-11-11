@@ -59,3 +59,24 @@ Schematics and signal-level netlists, a full bill of materials, cluster architec
 | 1 | USB CCID smartcard reader | Front panel |
 
 
+
+# Software prototype (v0.5.0)
+
+The whole signing node runs in software on one machine: the FPGA signing module and tamper supervisor as models, the SoC daemon (`openhsmd`), and the operator tool (`hsmctl`). It signs Ethereum (EIP-1559, EIP-155, ERC-20 transfer) and Bitcoin (P2WPKH) transactions under per-wallet policy.
+
+```bash
+cargo build --release && cargo test --release
+scripts/demo.sh                                   # three nodes, end to end
+python3 pentest/run.py && python3 pentest/report.py
+```
+
+| Document | Contents |
+|----------|----------|
+| [Getting started](docs/GETTING_STARTED.md) | Build, demo, manual walkthrough |
+| [System design](docs/SYSTEM_DESIGN.md) | Architecture, key hierarchy, design decisions |
+| [System specification](docs/SYSTEM_SPECIFICATION.md) | Interfaces, protocol, policy rules |
+| [Threat model](docs/THREAT_MODEL.md) | Attackers, objectives, residual risks |
+| [Penetration test report](docs/PENETRATION_TEST_REPORT.md) | 68 simulated attacks, methods and results |
+| [Compliance mapping](docs/COMPLIANCE.md) | Standards and regulations, gap by gap |
+
+The prototype is not certified, has not run on the target hardware, and has had no independent review. Do not use it to hold real funds.

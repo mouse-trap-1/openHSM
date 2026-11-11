@@ -1,0 +1,24 @@
+[package]
+name = "openhsm-cli"
+description = "hsmctl: operator and client command-line tool for OpenHSM"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[[bin]]
+name = "hsmctl"
+path = "src/main.rs"
+
+[dependencies]
+openhsm-node = { path = "../openhsm-node" }
+serde.workspace = true
+serde_json.workspace = true
+hex.workspace = true
+rcgen.workspace = true
+clap.workspace = true
+getrandom.workspace = true
+sha2.workspace = true
+ed25519-dalek.workspace = true
+time = "0.3"
