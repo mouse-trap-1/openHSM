@@ -236,6 +236,10 @@ openhsm-hwsim provision --state DIR  |  run --state DIR --soc-socket PATH --phys
 hsmctl pki init | pki sign-csr | identity | genesis | profile | call | propose | approve | submit | audit-verify | card-new | sim
 ```
 
+### Message layouts
+
+How to arrange each message, what every field and status bit means, and worked hex examples (module command and response MACs, the API request, Ethereum and Bitcoin transactions) are in section 14 of the [Interface Control Document](INTERFACE_CONTROL_DOCUMENT.md#14-message-construction). The examples are regenerated and checked by `scripts/message_examples/`.
+
 ### Interfaces in the hardware design only
 
 IF-12 (cluster port) and IF-13 (power) are described in the repository README and have no protocol or thresholds yet. The IF-05 physical link is likewise open.
