@@ -1,5 +1,7 @@
 # OpenHSM Simulated Penetration Test Report
 
+> **Note (25 November 2026):** this report records the run against 0.5.0, when the module bus was I2C. From FPGA V0.6 (protocol 0xB3) the bus is SPI with the same registers, commands and MACs, so the bus attacks below apply unchanged to a device on the SPI host link. A re-run against 0.6 gave the same passes and findings, except that cargo-audit and bandit were not installed for that run.
+
 Target: OpenHSM prototype 0.5.0 (release binaries built from this repository) and signing-module protocols 0xB1 and 0xB2.
 Kind of test: simulated, white-box, automated. Everything runs on one machine against the real binaries; the tamper enclosure is a software model.
 

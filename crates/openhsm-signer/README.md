@@ -40,7 +40,7 @@ Behaviour modelled:
 
 ### Hardening beyond protocol 0xB1
 
-The model reports protocol version **0xB3** (0xB2 on the V0.6 SPI host link) and implements the open hardening
+The model reports protocol version **0xB3**, which is protocol 0xB2 carried over the V0.6 SPI host link, and implements the open hardening
 items of the FPGA specification, intended for back-porting to the RTL:
 
 | Ext. | Feature |

@@ -38,9 +38,9 @@ Run ERC in KiCad as well.
 | SoC to supervisor link (IF-05) | UART plus alert line, with 1 kΩ series resistors | The ICD leaves this open |
 | Mesh | Pair 1 on hardware active tamper (PA0 to PC13); pairs 2-4 GPIO-scanned | The LQFP64 STM32U5 has only 3 TAMP pins |
 | Fail-safe defaults | SN_TAMPER pulled up, SN_CEREMONY pulled down, FPGA_RST_N pulled down, SOC_PWR_EN pulled down | The board is safe if the MCU is in reset |
-| Tamper-domain power mux | BAT54C diode-OR | The BOM's TPS2117 has no KiCad symbol |
-| Accelerometer | ADXL363 | The BOM's AIS328DQ has no KiCad symbol; the ADXL363's ~270 nA motion wake suits the battery domain |
-| Cluster PHY | KSZ9031RNX, gigabit RGMII | The BOM link points to the DP83825I, which is 10/100 RMII |
+| Tamper-domain power mux | BAT54C diode-OR | Replaces the TPS2117 of the earlier BOM, which has no KiCad symbol. The top-level BOM now lists the BAT54C |
+| Accelerometer | ADXL363 | Replaces the AIS328DQ of the earlier BOM, which has no KiCad symbol; the ADXL363's ~270 nA motion wake suits the battery domain. The top-level BOM now lists the ADXL363 |
+| Cluster PHY | KSZ9031RNX, gigabit RGMII | The earlier BOM linked the DP83825I, which is 10/100 RMII. The top-level BOM now lists the KSZ9031RNX |
 | Client port | On-SOM gigabit PHY | The DART-MX8M-PLUS has one Ethernet PHY on the module |
 | 5 V supervisor | TLV803EA43 drawn with the TPS3839 DBZ symbol | Same SOT-23 pinout. Verify |
 
