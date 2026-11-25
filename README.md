@@ -12,6 +12,7 @@ OpenVault is a reference design for building your own HSM cluster from off-the-s
 - **Policy enforced on the HSM.** Per-wallet spending caps, allow-lists and leased daily limits stop a compromised application server from draining funds.
 - **Layered backup.** Live replicas, encrypted off-site snapshots, and a root seed split 3-of-5 with SLIP-39.
 - **Multi-chain.** Supports secp256k1 ECDSA, BIP-340 Schnorr and Ed25519, covering Bitcoin, Ethereum and EVM chains, Solana, Cosmos and more.
+- **Preparing for post-quantum Ethereum.** Hybrid ML-KEM TLS on every network link, an SPI host link with room for kilobyte hash-based signatures, and a Keccak-256 core in the FPGA. The plan for Ethereum's move to hash-based signatures is in [docs/POST_QUANTUM.md](docs/POST_QUANTUM.md).
 
 ## What's in this repo
 
@@ -79,5 +80,6 @@ python3 pentest/run.py && python3 pentest/report.py
 | [Threat model](docs/THREAT_MODEL.md) | Attackers, objectives, residual risks |
 | [Penetration test report](docs/PENETRATION_TEST_REPORT.md) | 68 simulated attacks, methods and results |
 | [Compliance mapping](docs/COMPLIANCE.md) | Standards and regulations, gap by gap |
+| [Post-quantum plan](docs/POST_QUANTUM.md) | Ethereum's move to hash-based signatures: what changes in OpenHSM and when |
 
 The prototype is not certified, has not run on the target hardware, and has had no independent review. Do not use it to hold real funds.

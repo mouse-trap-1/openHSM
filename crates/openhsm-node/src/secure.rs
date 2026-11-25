@@ -1,9 +1,9 @@
 //! SoC secure-world component: the only code that talks to the signing
 //! module and the only holder of the keys derived from the tamper secret.
 //!
-//! This is the Rust equivalent of the reference driver `FPGA/V0.4/sn_host.py`
+//! This is the Rust equivalent of the reference driver `FPGA/V0.6/sn_host.py`
 //! with one addition: it verifies the response MAC (extension X1), so a
-//! device on the I2C bus cannot forge or alter a response.
+//! device on the host bus cannot forge or alter a response.
 
 use crate::state::Blob;
 use crate::util::{random, unhex_n};

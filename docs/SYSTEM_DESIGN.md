@@ -1,6 +1,6 @@
 # OpenHSM System Design
 
-Version 0.5.0 (prototype). Companion documents: [System Specification](SYSTEM_SPECIFICATION.md), [Interface Control Document](INTERFACE_CONTROL_DOCUMENT.md), [Threat Model](THREAT_MODEL.md), [Penetration Test Report](PENETRATION_TEST_REPORT.md), [Compliance Mapping](COMPLIANCE.md). The FPGA signing module has its own specification in [`FPGA/README.md`](../FPGA/README.md).
+Version 0.6.0 (prototype). Companion documents: [System Specification](SYSTEM_SPECIFICATION.md), [Interface Control Document](INTERFACE_CONTROL_DOCUMENT.md), [Threat Model](THREAT_MODEL.md), [Penetration Test Report](PENETRATION_TEST_REPORT.md), [Compliance Mapping](COMPLIANCE.md). The FPGA signing module has its own specification in [`FPGA/README.md`](../FPGA/README.md).
 
 This document explains how the prototype is put together and why. The specification says exactly what each interface does.
 
@@ -12,7 +12,7 @@ The prototype is the complete node in software, split into the same parts as the
 
 | Part of the real node | In this prototype | Status |
 | --- | --- | --- |
-| FPGA signing module (replaces the NXP SE050 on I2C) | `openhsm-signer`: a register-level model of `FPGA/V0.5/sign_node_top.v` (protocol 0xB2) | Functional model; the RTL is the reference |
+| FPGA signing module (takes the NXP SE050's place; SPI host link from V0.6) | `openhsm-signer`: a register-level model of `FPGA/V0.6/sign_node_top.v` (protocol 0xB3) | Functional model; the RTL is the reference |
 | STM32U5 tamper supervisor, sensors, key-switch | `openhsm-hw`: supervisor model, run as its own process (`openhsm-hwsim`) | Model; firmware not written |
 | i.MX 8M Plus SoC (API, policy, storage, cluster logic) | `openhsm-node` (`openhsmd`) | Working code, runs on Linux |
 | Operator workstation | `hsmctl` | Working code |
@@ -29,7 +29,7 @@ These were fixed before the prototype was written and the code follows them.
 | # | Decision | Where it shows |
 | --- | --- | --- |
 | D1 | The signing module does one job: sign secp256k1 ECDSA. No NFC, no TLS, no policy. | `openhsm-signer` has no network code and no transaction parser |
-| D2 | It is a drop-in for the SE050 slot: an I2C slave with a soft controller. | Register map and command set of `sign_node_top.v`, address 0x48 |
+| D2 | It takes the SE050's place on the carrier. Up to V0.5 that meant the SE050's I2C slot (0x48); from V0.6 the host link is SPI, because post-quantum signatures need more bandwidth than I2C has (D11). | Register map and command set of `sign_node_top.v`; `spi_host_slave.v` |
 | D3 | Wallet keys are generated on the module, kept only as blobs wrapped under the cluster KEK, and used on the module. | `GEN_WALLET`, `SIGN`; the node never sees a private key |
 | D4 | Keys must be exportable between nodes for cluster use, never in the clear. | ECIES transfer of the KEK; wallet blobs replicate as ciphertext |
 | D5 | Tamper detectors zero the keys. The STM32U5 supervisor connects directly to the module. | Supervisor sends S over receive-only SPI and drives the tamper line |
@@ -38,6 +38,7 @@ These were fixed before the prototype was written and the code follows them.
 | D8 | Operator cards are YubiKeys and are used for cluster key recovery. | Shamir shares wrapped to card secrets, `ceremony_split` / `ceremony_restore` |
 | D9 | About 55 signatures per second per node is acceptable. | Stateless module, so throughput scales by adding nodes |
 | D10 | Policy is enforced on the HSM so that a compromised application server cannot drain funds (repository README). | `policy.rs`, deny by default |
+| D11 | Prepare for Ethereum's move to hash-based signatures (announced 23 November 2026) without committing to a scheme before Ethereum does: bandwidth, hash hardware and FPGA headroom now; signing and state management once the specification is fixed. D1 stays secp256k1-only until then. | [POST_QUANTUM.md](POST_QUANTUM.md); SPI host link, `keccak256_core.v`, hybrid ML-KEM TLS |
 
 ## 3. Architecture
 
@@ -53,7 +54,7 @@ These were fixed before the prototype was written and the code follows them.
    |                   secure.rs (driver, holds chan key and SoC seal key)       |
    |                   node.rs   (boot checks, state anchoring, tamper poll)     |
    +----------|--------------------------------|-------------------|-------------+
-              | I2C, MAC on commands           | derived keys,     | NVMe
+              | SPI, MAC on commands           | derived keys,     | NVMe
               | and responses                  | counter, status   | state.json, audit.log
    +----------v----------------+     +---------v-----------+       (no secrets in clear)
    | Signing module (FPGA)     |<----| Tamper supervisor   |
@@ -63,7 +64,7 @@ These were fixed before the prototype was written and the code follows them.
    \____________________ tamper enclosure ________________/
 ```
 
-In the prototype the enclosure is the `openhsm-hwsim` process and the SoC is the `openhsmd` process. They talk over a Unix socket that carries exactly the signals on the board: I2C register reads and writes, and the supervisor's services. The signing module's keys and the tamper secret never enter the `openhsmd` address space. Penetration test F-08 dumps that process's memory to confirm it.
+In the prototype the enclosure is the `openhsm-hwsim` process and the SoC is the `openhsmd` process. They talk over a Unix socket that carries exactly the signals on the board: register reads and writes on the host bus, and the supervisor's services. The signing module's keys and the tamper secret never enter the `openhsmd` address space. Penetration test F-08 dumps that process's memory to confirm it.
 
 ### 3.1 Workspace layout
 
@@ -97,7 +98,7 @@ The most important consequence: the three ways to reach the KEK each need someth
 
 ```
 S (tamper supervisor, battery-backed, erased on tamper)
-├── HMAC(S,"SN-CHAN")     chan_key   module + SoC   authenticates the I2C channel
+├── HMAC(S,"SN-CHAN")     chan_key   module + SoC   authenticates the host channel
 ├── HMAC(S,"SN-SEAL")     seal_key   module only    seals the KEK for local restart
 └── HMAC(S,"SOC-SEAL-v1") soc_seal   SoC only       seals the node identity key and TLS key
 
@@ -161,13 +162,14 @@ At boot the node verifies every signature and link, compares the last sequence n
 
 | Area | Gap | Consequence |
 | --- | --- | --- |
-| Hardware | The FPGA is simulated RTL, not synthesised; the supervisor firmware and carrier board do not exist | No claim about physical security, side channels, faults or real entropy can be tested yet |
+| Hardware | The FPGA is simulated RTL, synthesised only by a generic Yosys flow, which puts it at about 2.7 times the XC7A50T's LUTs; the supervisor firmware and carrier board do not exist | No claim about physical security, side channels, faults or real entropy can be tested yet. The sequencer needs an area reduction or the device a size increase (POST_QUANTUM.md section 8) |
 | Module protocol | Extensions X1 to X6 are in the RTL from `FPGA/V0.5` and pass simulation, but the RTL and the model have not been run against each other command by command | A co-simulation of the two is still needed. The RTL also randomises the start point of each scalar multiplication, which the model does not need |
 | Secure world | `openhsmd` is one Linux process | The secure/normal world split is a module boundary, not OP-TEE isolation |
 | Policy location | Policy is enforced by the SoC, not the module | A full SoC compromise can request signatures on arbitrary digests (residual risk R-1) |
 | Clustering | Wallets replicate by signed snapshot export and import; there is no Raft, leader election or automatic failover | The README's availability targets are not met by this prototype |
 | Chains | secp256k1 ECDSA only: Ethereum (legacy, EIP-1559, ERC-20 transfer) and Bitcoin P2WPKH | No Taproot/Schnorr, no Ed25519 chains, no PSBT, no EIP-712 |
 | Cards | YubiKey responder is exercised with software cards only | Needs a drill with real cards |
+| Post-quantum | Wallet signatures are secp256k1 ECDSA and the KEK transfer is ECDH-based; only TLS is hybrid post-quantum so far | Tracked as R-11 and R-12; plan and order of work in [POST_QUANTUM.md](POST_QUANTUM.md) |
 | Performance | Not measured on target hardware. Verify-before-release (X3) roughly doubles the time of a signature in the RTL | The 55 signatures per second target is unverified, and is not met at 100 MHz with X3 enabled (see `FPGA/README.md` section 9) |
 | Assurance | No independent review, no formal verification, no certification | See [COMPLIANCE.md](COMPLIANCE.md) |
 
@@ -177,3 +179,4 @@ At boot the node verifies every signature and link, compares the last sequence n
 | --- | --- |
 | 0.5.0 | First system-level design: node software, enclosure model, protocol extensions X1 to X6, policy engine, audit chain. Dependencies moved to k256 0.14 after RUSTSEC-2026-0387; `rustls-pemfile` removed (unmaintained). |
 | 0.5.1 | X1 to X6 back-ported to the RTL (`FPGA/V0.5`); gaps table updated. |
+| 0.6.0 | Decision D11 (post-quantum preparation); D2 updated for the SPI host link (`FPGA/V0.6`, protocol 0xB3); hybrid X25519MLKEM768 TLS. |

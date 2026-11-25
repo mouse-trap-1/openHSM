@@ -22,11 +22,13 @@ Requirement identifiers (`REQ-…`) are referenced by the tests and the complian
 | `openhsm-hwsim` | Tamper enclosure (signing module + supervisor) as a process, reached over two Unix sockets | Prototype fixture, replaced by hardware |
 | `openhsm-signer-sim` | Signing module pins on a loopback TCP socket, for host-driver and attack tooling | Test fixture, never deployed |
 
-Build: Rust 1.87 or later, `cargo build --release`. No C dependencies beyond those of `ring`.
+Build: Rust 1.87 or later, `cargo build --release`. C dependencies: those of `ring` (certificate generation) and `aws-lc-rs` (TLS, for ML-KEM), which needs a C compiler.
 
-## 3. Signing module protocol 0xB2
+## 3. Signing module protocol 0xB2 / 0xB3
 
-The module implements the register map and commands of protocol 0xB1 unchanged, so the earlier driver `FPGA/V0.4/sn_host.py` works against it (test A-01). `VERSION` (0xFF) reads 0xB2. The additions below are implemented in the model and, from `FPGA/V0.5`, in the RTL; `FPGA/README.md` sections 5 to 7 now describe 0xB2 in full.
+Protocol 0xB3 (`FPGA/V0.6`) is 0xB2 carried over the SPI host link instead of I2C; everything in this section applies to both, and `VERSION` reads 0xB3 on V0.6 hardware and in the model.
+
+The module implements the register map and commands of protocol 0xB1 unchanged, so the earlier driver `FPGA/V0.4/sn_host.py` works against it (test A-01). `VERSION` (0xFF) reads 0xB2 on V0.5. The additions below are implemented in the model and, from `FPGA/V0.5`, in the RTL; `FPGA/README.md` sections 5 to 7 now describe 0xB2 in full.
 
 | Ext. | Requirement | Definition |
 | --- | --- | --- |
@@ -47,7 +49,7 @@ The node reaches the enclosure only through the `Hardware` trait (`crates/openhs
 
 | Call | Meaning |
 | --- | --- |
-| `bus_write(ptr, data)`, `bus_read(ptr, n)` | I2C register access to the signing module |
+| `bus_write(ptr, data)`, `bus_read(ptr, n)` | Register access to the signing module (SPI host link from V0.6) |
 | `restart_signer()` | Reset the module and have the supervisor resend S |
 | `soc_keys()` | `chan` = HMAC-SHA256(S, "SN-CHAN"), `seal` = HMAC-SHA256(S, "SOC-SEAL-v1") |
 | `counter()`, `counter_increment()` | Battery-backed 64-bit monotonic counter |
@@ -64,6 +66,7 @@ The node reaches the enclosure only through the `Hardware` trait (`crates/openhs
 ### 5.1 Transport and framing
 
 - REQ-API-01 TLS 1.3 only, with a client certificate that chains to the cluster CA recorded in the node state.
+- REQ-API-01a Key exchange prefers hybrid X25519MLKEM768. OpenHSM's own clients refuse any other group (test `pq_tls`).
 - Frame: 4-byte big-endian length, then one JSON document. Maximum frame 16 MiB. At most 256 connections, 32 per source address; 5 s handshake deadline, 60 s frame deadline.
 
 ```
@@ -167,7 +170,7 @@ Events recorded: `node_init`, `node_boot`, every successful signature with its s
 | KEK transfer | ECIES: ephemeral ECDH on secp256k1, HMAC-SHA256 KDF bound to both public keys, AES-256-GCM | Points validated before use |
 | Break-glass | Shamir over GF(2^8), 2 ≤ m ≤ n ≤ 8, fingerprint check on restore | Card secret from HMAC-SHA1 challenge-response |
 | Requests, audit chain, node identity | Ed25519 (strict verification) | |
-| Transport | TLS 1.3 (rustls with ring), ECDSA P-256 certificates | |
+| Transport | TLS 1.3 (rustls with aws-lc-rs), ECDSA P-256 certificates, hybrid X25519MLKEM768 key exchange | `hsmctl` and node clients offer only X25519MLKEM768; the listener also accepts X25519 (REQ-API-01a) |
 | Hashes | SHA-256, Keccak-256, RIPEMD-160 (addresses) | |
 | Random numbers | Module: TRNG with repetition-count and adaptive-proportion tests. Node: operating system CSPRNG | The model's source is the OS CSPRNG behind the same health tests |
 
@@ -199,3 +202,4 @@ Events recorded: `node_init`, `node_boot`, every successful signature with its s
 | --- | --- |
 | 0.5.0 | First system specification. Adds protocol 0xB2, the supervisor interface, the node API, policy, persistent formats. Offline audit verification now rejects empty logs (penetration test E-05). |
 | 0.5.1 | Protocol 0xB2 is now also in the RTL (`FPGA/V0.5`). |
+| 0.6.0 | Protocol 0xB3: 0xB2 over the SPI host link (`FPGA/V0.6`). Hybrid post-quantum TLS (REQ-API-01a). |

@@ -7,8 +7,8 @@
 //! request : op(1) arg(1) len(2, big-endian) data(len)
 //! response: len(2, big-endian) data(len)
 //!
-//! op 0x01  I2C write   arg = register pointer, data = bytes
-//! op 0x02  I2C read    arg = register pointer, len = bytes to read, no data
+//! op 0x01  host write  arg = register pointer, data = bytes
+//! op 0x02  host read   arg = register pointer, len = bytes to read, no data
 //! op 0x10  SPI frame   data = frame from the tamper MCU (0xA5 || S)
 //! op 0x11  tamper pin  arg = level (0/1)
 //! op 0x12  reset

@@ -1,0 +1,424 @@
+(kicad_sch
+  (version 20230121)
+  (generator eeschema)
+  (uuid "38213bc9-d293-44bc-8563-81a5c3d5e310")
+  (paper "A3")
+  (title_block
+    (title "OpenHSM carrier: top level")
+    (date "2026-11-25")
+    (rev "0.2")
+    (company "OpenHSM")
+    (comment 1 "Generated from the openHSM repo docs (v0.6.x). Draft for review.")
+  )
+  (lib_symbols)
+  (text "OpenHSM signing node: carrier board (draft generated from the openHSM repo, v0.6.x docs)"
+    (at 20.32 20.32 0)
+    (effects
+      (font
+        (size 3 3)
+        bold
+      )
+      (justify left bottom)
+    )
+    (uuid "028d8292-d12b-4022-8b26-b2842c3244f9")
+  )
+  (text "Power path and rails; AON domain"
+    (at 30.48 81.28 0)
+    (effects
+      (font
+        (size 1.5 1.5)
+      )
+      (justify left bottom)
+    )
+    (uuid "85c71db0-a922-41ec-90f7-01bb3022559e")
+  )
+  (text "FPGA signing module (IF-02/03/04)"
+    (at 110.49 81.28 0)
+    (effects
+      (font
+        (size 1.5 1.5)
+      )
+      (justify left bottom)
+    )
+    (uuid "e9f9d47b-2c8d-4574-a1fb-4cddc5898f66")
+  )
+  (text "STM32U5 tamper supervisor (IF-05/06)"
+    (at 190.5 81.28 0)
+    (effects
+      (font
+        (size 1.5 1.5)
+      )
+      (justify left bottom)
+    )
+    (uuid "9a41581c-717d-4a8b-871b-350457ca6117")
+  )
+  (text "Mesh, lid, light, accel, key-switch, TRNG"
+    (at 270.51 81.28 0)
+    (effects
+      (font
+        (size 1.5 1.5)
+      )
+      (justify left bottom)
+    )
+    (uuid "27dd88a1-2ff8-4558-a127-27c6d1c66628")
+  )
+  (text "i.MX 8M Plus SOM"
+    (at 30.48 146.05 0)
+    (effects
+      (font
+        (size 1.5 1.5)
+      )
+      (justify left bottom)
+    )
+    (uuid "ad2fcac2-e37c-4208-a36d-474c6ee69191")
+  )
+  (text "Client + cluster Ethernet"
+    (at 110.49 146.05 0)
+    (effects
+      (font
+        (size 1.5 1.5)
+      )
+      (justify left bottom)
+    )
+    (uuid "714f6945-eca2-46d7-9abe-015007d87ab2")
+  )
+  (text "NVMe + USB card reader"
+    (at 190.5 146.05 0)
+    (effects
+      (font
+        (size 1.5 1.5)
+      )
+      (justify left bottom)
+    )
+    (uuid "9b398aed-fc03-4d10-8523-f259965e9d7a")
+  )
+  (text "Tamper enclosure contents: FPGA signing module, STM32U5 supervisor, sensors, battery (SYSTEM_DESIGN 3)."
+    (at 20.32 175.26 0)
+    (effects
+      (font
+        (size 1.5 1.5)
+      )
+      (justify left bottom)
+    )
+    (uuid "de0b6ecc-5c4d-455f-8ef5-de09a20ca4c7")
+  )
+  (text "SoC <-> FPGA: SPI mode 0 up to 12.5 MHz (ECSPI), every command and response HMAC'd (IF-02, protocol 0xB3). SoC never sees S."
+    (at 20.32 180.34 0)
+    (effects
+      (font
+        (size 1.5 1.5)
+      )
+      (justify left bottom)
+    )
+    (uuid "c8101592-6b3a-43df-bf9a-795bb9e10e1d")
+  )
+  (text "Supervisor -> FPGA: receive-only SPI frame 0xA5||S, tamper line (fail-safe pull-up), ceremony pin (fail-closed pull-down)."
+    (at 20.32 185.42 0)
+    (effects
+      (font
+        (size 1.5 1.5)
+      )
+      (justify left bottom)
+    )
+    (uuid "7fbbc428-5314-47bd-bca5-12bdabffe1ab")
+  )
+  (text "Decisions made for this draft (verify): XC7A50T-FTG256 with BBRAM key on VCCBATT; FPGA only (no SE050); UART for IF-05;"
+    (at 20.32 190.5 0)
+    (effects
+      (font
+        (size 1.5 1.5)
+      )
+      (justify left bottom)
+    )
+    (uuid "fd4a1d93-660d-480c-a8e3-c2ab7714e896")
+  )
+  (text "  BAT54C diode-OR instead of TPS2117; ADXL363 instead of AIS328DQ; KSZ9031RNX instead of DP83825I; generic GbE magjack and"
+    (at 20.32 195.58 0)
+    (effects
+      (font
+        (size 1.5 1.5)
+      )
+      (justify left bottom)
+    )
+    (uuid "3aaadf89-15f7-4802-9a9f-79d7a513cc00")
+  )
+  (text "  functional SOM symbol (pin numbers to be mapped). Mesh pair 1 on hardware TAMP, pairs 2-4 GPIO-scanned (LQFP64 has 3 TAMP pins)."
+    (at 20.32 199.39 0)
+    (effects
+      (font
+        (size 1.5 1.5)
+      )
+      (justify left bottom)
+    )
+    (uuid "2002a8cf-bd5c-46ca-9f32-8a7f2f1c4e1e")
+  )
+  (sheet
+    (at 30 45)
+    (size 60.96 30.48)
+    (fields_autoplaced)
+    (stroke
+      (width 0.1524)
+      (type solid)
+    )
+    (fill
+      (color 0 0 0 0)
+    )
+    (uuid "ccf34430-0184-47ea-9bf6-e3e3f8fea837")
+    (property "Sheetname" "Power"
+      (at 30 44.3 0)
+      (effects
+        (font
+          (size 1.27 1.27)
+        )
+        (justify left bottom)
+      )
+    )
+    (property "Sheetfile" "power.kicad_sch"
+      (at 30 76.08 0)
+      (effects
+        (font
+          (size 1.27 1.27)
+        )
+        (justify left top)
+      )
+    )
+    (instances
+      (project "openhsm-carrier"
+        (path "/38213bc9-d293-44bc-8563-81a5c3d5e310"
+          (page "2")
+        )
+      )
+    )
+  )
+  (sheet
+    (at 110 45)
+    (size 60.96 30.48)
+    (fields_autoplaced)
+    (stroke
+      (width 0.1524)
+      (type solid)
+    )
+    (fill
+      (color 0 0 0 0)
+    )
+    (uuid "332b3843-d3fe-415c-868b-5914860506b5")
+    (property "Sheetname" "Signing module (Artix-7 FPGA)"
+      (at 110 44.3 0)
+      (effects
+        (font
+          (size 1.27 1.27)
+        )
+        (justify left bottom)
+      )
+    )
+    (property "Sheetfile" "fpga.kicad_sch"
+      (at 110 76.08 0)
+      (effects
+        (font
+          (size 1.27 1.27)
+        )
+        (justify left top)
+      )
+    )
+    (instances
+      (project "openhsm-carrier"
+        (path "/38213bc9-d293-44bc-8563-81a5c3d5e310"
+          (page "3")
+        )
+      )
+    )
+  )
+  (sheet
+    (at 190 45)
+    (size 60.96 30.48)
+    (fields_autoplaced)
+    (stroke
+      (width 0.1524)
+      (type solid)
+    )
+    (fill
+      (color 0 0 0 0)
+    )
+    (uuid "dc65438d-76b8-41ee-aa4f-7876c86fa65e")
+    (property "Sheetname" "Tamper supervisor (STM32U5)"
+      (at 190 44.3 0)
+      (effects
+        (font
+          (size 1.27 1.27)
+        )
+        (justify left bottom)
+      )
+    )
+    (property "Sheetfile" "supervisor.kicad_sch"
+      (at 190 76.08 0)
+      (effects
+        (font
+          (size 1.27 1.27)
+        )
+        (justify left top)
+      )
+    )
+    (instances
+      (project "openhsm-carrier"
+        (path "/38213bc9-d293-44bc-8563-81a5c3d5e310"
+          (page "4")
+        )
+      )
+    )
+  )
+  (sheet
+    (at 270 45)
+    (size 60.96 30.48)
+    (fields_autoplaced)
+    (stroke
+      (width 0.1524)
+      (type solid)
+    )
+    (fill
+      (color 0 0 0 0)
+    )
+    (uuid "cd05a5d7-f776-45ed-bd69-c0ac1e9227d8")
+    (property "Sheetname" "Tamper sensors, key-switch and TRNG"
+      (at 270 44.3 0)
+      (effects
+        (font
+          (size 1.27 1.27)
+        )
+        (justify left bottom)
+      )
+    )
+    (property "Sheetfile" "sensors.kicad_sch"
+      (at 270 76.08 0)
+      (effects
+        (font
+          (size 1.27 1.27)
+        )
+        (justify left top)
+      )
+    )
+    (instances
+      (project "openhsm-carrier"
+        (path "/38213bc9-d293-44bc-8563-81a5c3d5e310"
+          (page "5")
+        )
+      )
+    )
+  )
+  (sheet
+    (at 30 110)
+    (size 60.96 30.48)
+    (fields_autoplaced)
+    (stroke
+      (width 0.1524)
+      (type solid)
+    )
+    (fill
+      (color 0 0 0 0)
+    )
+    (uuid "5e080661-02cf-4ccb-a8b4-e032f1509ecd")
+    (property "Sheetname" "SoC module (i.MX 8M Plus)"
+      (at 30 109.3 0)
+      (effects
+        (font
+          (size 1.27 1.27)
+        )
+        (justify left bottom)
+      )
+    )
+    (property "Sheetfile" "soc.kicad_sch"
+      (at 30 141.08 0)
+      (effects
+        (font
+          (size 1.27 1.27)
+        )
+        (justify left top)
+      )
+    )
+    (instances
+      (project "openhsm-carrier"
+        (path "/38213bc9-d293-44bc-8563-81a5c3d5e310"
+          (page "6")
+        )
+      )
+    )
+  )
+  (sheet
+    (at 110 110)
+    (size 60.96 30.48)
+    (fields_autoplaced)
+    (stroke
+      (width 0.1524)
+      (type solid)
+    )
+    (fill
+      (color 0 0 0 0)
+    )
+    (uuid "4de9632c-fc07-42d4-b6a9-61d7f00d8fbf")
+    (property "Sheetname" "Ethernet: client and cluster ports"
+      (at 110 109.3 0)
+      (effects
+        (font
+          (size 1.27 1.27)
+        )
+        (justify left bottom)
+      )
+    )
+    (property "Sheetfile" "ethernet.kicad_sch"
+      (at 110 141.08 0)
+      (effects
+        (font
+          (size 1.27 1.27)
+        )
+        (justify left top)
+      )
+    )
+    (instances
+      (project "openhsm-carrier"
+        (path "/38213bc9-d293-44bc-8563-81a5c3d5e310"
+          (page "7")
+        )
+      )
+    )
+  )
+  (sheet
+    (at 190 110)
+    (size 60.96 30.48)
+    (fields_autoplaced)
+    (stroke
+      (width 0.1524)
+      (type solid)
+    )
+    (fill
+      (color 0 0 0 0)
+    )
+    (uuid "af1ed7c0-2283-4c58-8b71-9b34a27c58a3")
+    (property "Sheetname" "NVMe and USB card reader"
+      (at 190 109.3 0)
+      (effects
+        (font
+          (size 1.27 1.27)
+        )
+        (justify left bottom)
+      )
+    )
+    (property "Sheetfile" "storage_usb.kicad_sch"
+      (at 190 141.08 0)
+      (effects
+        (font
+          (size 1.27 1.27)
+        )
+        (justify left top)
+      )
+    )
+    (instances
+      (project "openhsm-carrier"
+        (path "/38213bc9-d293-44bc-8563-81a5c3d5e310"
+          (page "8")
+        )
+      )
+    )
+  )
+  (sheet_instances
+    (path "/" (page "1"))
+  )
+)

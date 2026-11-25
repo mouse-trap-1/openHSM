@@ -2,7 +2,7 @@
 //! the integration tests.
 
 use crate::proto::{read_frame, sign_payload, write_frame, Frame, Payload, SigEntry, MAX_FRAME};
-use crate::server::{parse_certs, parse_key, root_store};
+use crate::server::{client_provider, parse_certs, parse_key, root_store};
 use crate::util::{now_ms, random};
 use ed25519_dalek::SigningKey;
 use rustls::pki_types::ServerName;
@@ -59,18 +59,24 @@ pub struct Client {
     sign_key: SigningKey,
 }
 
+/// TLS 1.3 client configuration with hybrid post-quantum key exchange only
+/// (see [`crate::server::client_provider`]).
+pub fn client_config(ca_pem: &[u8], cert_pem: &[u8], key_pem: &[u8]) -> Result<Arc<ClientConfig>, String> {
+    let tls = ClientConfig::builder_with_provider(client_provider())
+        .with_protocol_versions(&[&rustls::version::TLS13])
+        .map_err(|e| e.to_string())?
+        .with_root_certificates(root_store(ca_pem)?)
+        .with_client_auth_cert(parse_certs(cert_pem)?, parse_key(key_pem)?)
+        .map_err(|e| e.to_string())?;
+    Ok(Arc::new(tls))
+}
+
 impl Client {
     pub fn new(profile: Profile) -> Result<Client, String> {
         let read = |p: &Path| std::fs::read(p).map_err(|e| format!("{}: {e}", p.display()));
-        let provider = Arc::new(rustls::crypto::ring::default_provider());
-        let tls = ClientConfig::builder_with_provider(provider)
-            .with_protocol_versions(&[&rustls::version::TLS13])
-            .map_err(|e| e.to_string())?
-            .with_root_certificates(root_store(&read(&profile.ca)?)?)
-            .with_client_auth_cert(parse_certs(&read(&profile.cert)?)?, parse_key(&read(&profile.key)?)?)
-            .map_err(|e| e.to_string())?;
+        let tls = client_config(&read(&profile.ca)?, &read(&profile.cert)?, &read(&profile.key)?)?;
         let sign_key = load_sign_key(&profile.sign_key)?;
-        Ok(Client { profile, tls: Arc::new(tls), sign_key })
+        Ok(Client { profile, tls, sign_key })
     }
 
     /// Sign `payload` as this client.

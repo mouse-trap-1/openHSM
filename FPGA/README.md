@@ -2,13 +2,13 @@
 
 An FPGA module that signs secp256k1 ECDSA transactions with wallet keys it never stores. Verilog, simulated under Icarus Verilog (`-g2005`); not yet synthesised or run on hardware.
 
-This document describes **V0.5, protocol 0xB2**. `V0.5/` holds the complete source tree; `V0.2` to `V0.4` hold the history, each with only the files that changed. What V0.5 adds to V0.4 is listed in [`V0.5/README.md`](V0.5/README.md).
+This document describes **V0.6, protocol 0xB3**. `V0.6/` and `V0.5/` hold complete source trees; `V0.2` to `V0.4` hold the history, each with only the files that changed. Protocol 0xB3 is 0xB2 on an SPI host link instead of I2C; what V0.6 changes is listed in [`V0.6/README.md`](V0.6/README.md), and what V0.5 added to V0.4 in [`V0.5/README.md`](V0.5/README.md). Why the bus changed: [`docs/POST_QUANTUM.md`](../docs/POST_QUANTUM.md).
 
 Contents: [1 Purpose](#1-purpose-and-scope) · [2 Context](#2-system-context-and-threat-model) · [3 Architecture](#3-architecture) · [4 Keys](#4-key-hierarchy-and-security-architecture) · [5 Interfaces](#5-external-interfaces) · [6 Commands](#6-command-set-and-error-codes) · [7 Crypto](#7-cryptographic-specification) · [8 Procedures](#8-lifecycle-procedures) · [9 Performance](#9-performance) · [10 Verification](#10-verification-status) · [11 Limitations](#11-known-limitations-and-residual-risks) · [12 Integration](#12-hardware-integration-requirements-and-open-items) · [Appendix: files and simulation](#appendix-files-and-simulation)
 
 ## 1. Purpose and scope
 
-The signing node is an FPGA module that signs secp256k1 ECDSA transactions with wallet keys it never stores, and does nothing else. It takes the place of the NXP SE050 on the signing node's I2C bus.
+The signing node is an FPGA module that signs secp256k1 ECDSA transactions with wallet keys it never stores, and does nothing else. It takes the place of the NXP SE050 on the signing node's carrier, on an SPI host link from the SoC (I2C up to V0.5).
 
 It does:
 
@@ -33,7 +33,7 @@ The node sits between three parties: the i.MX 8M Plus SoC (network, API, cluster
 
 | Party | Connection | Trusted for | Not trusted for |
 | --- | --- | --- | --- |
-| SoC secure world | I2C master | Sending authenticated commands, storing wrapped blobs and the sealed KEK | Nothing beyond what the MAC and counter allow |
+| SoC secure world | SPI master (host link) | Sending authenticated commands, storing wrapped blobs and the sealed KEK | Nothing beyond what the MAC and counter allow |
 | SoC normal world / network | none directly | Nothing | Everything: it never reaches the FPGA |
 | STM32U5 tamper MCU | SPI (receive only), tamper line, ceremony pin | Delivering secret S after each boot, raising tamper, reporting the key-switch | Reading anything back: there is no MISO |
 | NVMe / Raft peers | via SoC | Holding wrapped wallet blobs and sealed KEK blobs | Confidentiality: blobs are useless without the KEK |
@@ -41,12 +41,12 @@ The node sits between three parties: the i.MX 8M Plus SoC (network, API, cluster
 
 Assumptions the design depends on:
 
-- The I2C link between the SoC secure world and the FPGA is not trusted. Commands and responses are both authenticated, so a device on the bus can block traffic or lock the channel but cannot forge either direction.
+- The host link between the SoC secure world and the FPGA is not trusted. Commands and responses are both authenticated, so a device on the bus can block traffic or lock the channel but cannot forge either direction.
 - The SoC is given only chan_key by the tamper MCU, never S. With S it could derive seal_key and open the sealed KEK on its own disk.
 - The tamper MCU holds S only while the enclosure is intact, so a tamper event destroys the means to unseal the local KEK blob.
 - During a share ceremony the SoC secure world briefly sees each card-derived secret r. A compromised secure world at that moment, plus the stored blobs, could rebuild the KEK. The ceremony must run on a trusted node. On the bus r is masked, and no ceremony command runs unless the key-switch is on.
 
-Attackers considered: a remote attacker with full control of the SoC normal world; a thief with the NVMe drive and database backups; a replay, injection or substitution attacker on the I2C bus in either direction; a single injected fault during signing; physical probing that trips tamper. Side-channel attacks and multiple or targeted faults are listed as open items in section 11.
+Attackers considered: a remote attacker with full control of the SoC normal world; a thief with the NVMe drive and database backups; a replay, injection or substitution attacker on the host bus in either direction; a single injected fault during signing; physical probing that trips tamper. Side-channel attacks and multiple or targeted faults are listed as open items in section 11.
 
 ## 3. Architecture
 
@@ -54,7 +54,7 @@ One command sequencer in `sign_node_top` drives a small set of shared engines. E
 
 | Block | File | Role |
 | --- | --- | --- |
-| Command sequencer | `sign_node_top.v` | I2C register file, MAC check and lockout, command steps, signature check, scrub on completion, response MAC |
+| Command sequencer | `sign_node_top.v` | Host register file, MAC check and lockout, command steps, signature check, scrub on completion, response MAC |
 | Signer core | `ecdsa_secp256k1_sign.v`, `modmul_serial.v`, `ecdsa_ucode_rom.v` | Constant-time Montgomery ladder, complete add/double formulas, Fermat inversion, low-s. Modes: sign, public key, and multiply an arbitrary point (ECDH). The start point is taken in projective form, so the caller can randomise it |
 | Shared multiplier | `modmul_serial.v` (second instance in `sign_node_top.v`) | Mod p: randomises the start point of every scalar multiplication. Mod n: the scalar half of the signature check |
 | Nonce | `rfc6979_nonce.v` | RFC 6979 HMAC-DRBG, hedged with fresh TRNG bytes |
@@ -64,7 +64,8 @@ One command sequencer in `sign_node_top` drives a small set of shared engines. E
 | Secret sharing | `shamir_core.v` | (m, n) Shamir over GF(2^8), split by Horner, combine by Lagrange |
 | Secret store | `secret_store.v` | The only long-lived secrets: chan_key, seal_key, KEK, slot-2 KEK, enrolment key. Asynchronous tamper clear |
 | TRNG | `trng_ro.v` | Ring-oscillator source, von Neumann debias, repetition and adaptive-proportion health tests |
-| I2C slave | `i2c_slave.v` | Soft controller, pointer protocol, open-drain via `sda_oe`, no clock stretching |
+| SPI host slave | `spi_host_slave.v` | SPI mode 0, oversampled by the system clock, pointer protocol, MISO tri-stated while deselected (replaced `i2c_slave.v` in V0.6) |
+| Keccak-256 | `keccak256_core.v` | Keccak-f[1600], one round per clock. Standalone in V0.6, not used by any command yet (see docs/POST_QUANTUM.md) |
 | SPI receiver | `spi_secret_rx.v` | Receive-only, one 33-byte frame, rejects bad length or header |
 
 Control flow of a signature: the host writes the buffers, MAC and counter, then the command byte. The sequencer HMACs the buffers with chan_key and checks the MAC and counter. It then unwraps the key with AES-GCM under the KEK, draws fresh entropy, derives the nonce and runs the signer core from a randomised start point. It holds r and s back while it checks them (section 7), copies them to the buffers only if the check passes, scrubs, computes the response MAC over the buffers, and raises done.
@@ -100,9 +101,9 @@ Security properties the design aims for:
 
 ## 5. External interfaces
 
-The node has six external connections: I2C to the SoC secure world, SPI from the tamper MCU, an asynchronous tamper input, the ceremony pin, clock and reset, and three status LEDs.
+The node has six external connections: SPI to the SoC secure world, SPI from the tamper MCU, an asynchronous tamper input, the ceremony pin, clock and reset, and three status LEDs.
 
-**I2C.** 7-bit slave address, default 0x48 (the SE050's), configurable by parameter. Single-byte register pointer, big-endian multi-byte values, pointer auto-increments. No clock stretching, so keep the system clock at least 8 times SCL. Buffers can be written only while the node is idle.
+**SPI host link.** Mode 0 (CPOL 0, CPHA 0), MSB first, one chip select per node. A write frame is `0x02`, pointer, data; a read frame is `0x03`, pointer, one dummy byte, then data out on MISO. Any other first byte is ignored until CS_N rises. Single-byte register pointer, big-endian multi-byte values, pointer auto-increments. SCLK, CS_N and MOSI are oversampled, so keep the system clock at least 8 times SCLK (12.5 MHz at 100 MHz). MISO is driven only while CS_N is low. Buffers can be written only while the node is idle. (Up to V0.5 this was an I2C slave at 0x48, with the same registers.)
 
 | Address | Name | Dir | Size | Content |
 | --- | --- | --- | --- | --- |
@@ -120,7 +121,7 @@ The node has six external connections: I2C to the SoC secure world, SPI from the
 | 0x84 | BUF_C | R/W | 32 | Point y |
 | 0xA4 | MAC | W | 32 | HMAC-SHA256 over the command frame. Reads as zero; cleared after every command |
 | 0xC4 | RMAC | R | 32 | HMAC-SHA256 over the response frame. Zero while a command runs, after an authentication failure, and with no session |
-| 0xFF | VERSION | R | 1 | 0xB2 |
+| 0xFF | VERSION | R | 1 | 0xB3 (0xB2 in V0.5) |
 
 The MAC input is 161 bytes: nonce, counter, command, WID, IV, TAG, BUF_A, BUF_B, BUF_C. The response MAC input is 172 bytes: the label "SN-RESP-v1", nonce, counter, command, error code, then WID, IV, TAG, BUF_A, BUF_B, BUF_C as the command left them.
 
@@ -252,7 +253,7 @@ Turn the ceremony key-switch on before step 1 and off after step 3. The same app
 
 ## 9. Performance
 
-At a 100 MHz clock a signature takes about 34.7 ms inside the module with the signature check on (the default), and about 37.6 ms per request over a 1 MHz I2C bus. That is roughly **27 signatures per second per node, about half the 55 per second target**. With the check off (`VERIFY_SIGN = 0`) it is about 18.0 ms and 48 per second, as in V0.4. The 100 MHz clock is an assumption, because the design has not been synthesised or timed on silicon.
+At a 100 MHz clock a signature takes about 34.7 ms inside the module with the signature check on (the default). Over the V0.6 SPI link at 12.5 MHz the bus adds about 0.2 ms, so a request takes about 34.9 ms: roughly **28.6 signatures per second per node, about half the 55 per second target**. With the check off (`VERIFY_SIGN = 0`) it is about 18.2 ms and 55 per second. On the 1 MHz I2C bus of V0.5 the same figures were 37.6 ms (27 per second) and 48 per second, because the bus alone took about 2.9 ms. The 100 MHz clock is an assumption, because the design has not been synthesised or timed on silicon.
 
 The cycle counts below were measured in the V0.5 simulation (`tb_v05.v`, lines `CYCLES` in its log) and include command authentication and the response MAC.
 
@@ -267,7 +268,7 @@ The cycle counts below were measured in the V0.5 simulation (`tb_v05.v`, lines `
 | Start-point randomisation | about 520 | 5 us | Two mod-p multiplications per scalar multiplication |
 | KEK_GEN, KEK_FP, SPLIT_BEGIN, share commands | 1,000 to 5,500 | under 0.1 ms | Measured |
 
-On the bus, one SIGN request writes about 193 bytes and reads back 96 (r, s and the response MAC), which costs about 2.9 ms at 1 MHz and about 7 ms at 400 kHz.
+On the bus, one SIGN request writes about 180 bytes of registers and reads back 96 (r, s and the response MAC). Over I2C that cost about 2.9 ms at 1 MHz and about 7 ms at 400 kHz. Over SPI at 12.5 MHz, with WID to MAC written as one 172-byte frame (the registers are contiguous) and three-byte read headers, it is about 300 bytes on the wire, about 0.2 ms. That figure is calculated, not measured on hardware.
 
 Ways to recover the target, in order of effort:
 
@@ -278,20 +279,22 @@ Ways to recover the target, in order of effort:
 
 ## 10. Verification status
 
-Every block passes its own simulation under Icarus Verilog, and the full node passes three system simulations that independent Python checks then re-verify from the bus traffic. Nothing has been run on hardware. The results below are from the V0.5 sources.
+Every block passes its own simulation under Icarus Verilog, and the full node passes three system simulations that independent Python checks then re-verify from the bus traffic. Nothing has been run on hardware. The results below are from the V0.6 sources; V0.5 gave the same counts on I2C.
 
 | Test | What it covers | Result |
 | --- | --- | --- |
 | Signer core | Range rejections, signatures and public keys against `refmodel.py`, and the same signature from two randomised start points | 10 of 10 (`tb_ecdsa_sign.v`, 2 signature vectors) |
 | Hash and nonce | HMAC-SHA256 for 16 message lengths including the 161-byte command frame and the 172-byte response frame; RFC 6979 plain and hedged, including the published secp256k1 vector | 25 of 25 |
-| I2C slave, TRNG | Protocol, health tests (simulation model) | Pass |
+| SPI host slave | Write and read-back of 32 bytes at 12.5 MHz (clk/8) and at a slow, odd SCLK; pointer wrap; unknown opcode ignored; partial byte dropped; MISO released while deselected (`tb_spi_host_slave.v`) | 8 of 8 |
+| Keccak-256 | 9 messages of 0 to 500 bytes (1 to 4 blocks) against a reference checked against hashlib SHA3 and Ethereum's known values; wipe mid-permutation (`tb_keccak.v`) | 10 of 10 |
+| TRNG | Health tests (simulation model) | Pass |
 | AES-256 and GCM | FIPS-197 block; 6 encrypt and 6 decrypt vectors from the `cryptography` library; 3 tamper cases withhold plaintext; wipe mid-operation | 17 of 17 |
 | SPI, point check, ECDH | Frame accept and reject; valid and invalid points; multiplication of arbitrary points against the reference | 17 of 17 |
 | Shamir | 4 (m, n) settings, every evaluation point, several subsets, fewer than m shares, rejections, tamper clear | 46 of 46 |
 | Node system, protocol 0xB2 (`tb_v05.v`) | Response MAC on success and on error; MAC register cleared; a signature that passes its check; a fault forced into s caught by the scalar check; a bit flipped in the ladder caught by the second ladder; buffers zero after errors; all ten gated commands refused with the ceremony pin low; split and restore with masked card secrets; an unmasked secret refused; seven failures then success; eight failures lock; reset unlocks; tamper clears RMAC | 71 checks, all pass |
-| Node system, Phase 1 (`tb_node_system.v`) | Two nodes on one I2C bus: sessions, MAC and replay rejection, wallet wrap and sign, wrong id or tag, ECIES transfer, seal and reboot, tamper mid-signature | 48 checks, all pass |
+| Node system, Phase 1 (`tb_node_system.v`) | Two nodes on one SPI bus, one chip select each: sessions, MAC and replay rejection, wallet wrap and sign, wrong id or tag, ECIES transfer, seal and reboot, tamper mid-signature | 48 checks, all pass |
 | Node system, Phase 2 (`tb_phase2.v`) | Split 3-of-5, wrong-card and duplicate shares, tamper wipe, restore on two nodes from different card subsets, rotation with ECIES to a second node, rewrap, promote | 53 checks, all pass |
-| Host tools against the software model | `sn_host.py` and `sn_ceremony.py` of V0.5 driving the Rust model of protocol 0xB2: wallet, sign, gated command refused, 3-of-5 split and restore, altered response rejected, lockout reported | Pass |
+| Host tools against the software model | `sn_host.py` of V0.6 driving the Rust model of protocol 0xB3: version accepted, wallet, sign and verify, gated command refused, ECIES transfer between two models, altered response rejected | 6 of 6 |
 | Ceremony tool | Split 3-of-5, restore from three card subsets, refuse with two | Pass (software cards) |
 
 The independent Python checks use only what appeared on the bus plus testbench peeks of the KEK and enrolment key. They confirm that every response MAC recomputes from the logged buffers, that the value sent to SHARE_GET_C is the card secret XOR the specified mask and does not itself open the share, that sealed and wrapped blobs decrypt with the stated keys, that the required number of shares rebuild the KEK and fewer do not, that the ECIES blob decrypts, that REWRAP keeps the same wallet key under the new KEK only, and that every signature verifies, is low-s, and differs from its repeat (hedged nonce).
@@ -312,7 +315,7 @@ This is a simulated design, not a certified or deployed one. Do not put real fun
 
 **Physical and implementation security**
 
-- Not synthesised, placed or timed. There are no resource, frequency or power figures.
+- Not synthesised in Vivado, placed or timed. A generic Yosys synthesis (V0.6) estimates 88,767 LUTs and 38,755 flip-flops, about 2.7 times the XC7A50T's 32,600 LUTs; most of it is the sequencer's wide multiplexing. See `docs/POST_QUANTUM.md` section 8. There are no frequency or power figures.
 - Side-channel countermeasures are partial. The ladder runs a fixed number of cycles with conditional swaps and starts from a randomised projective point, but there is no scalar blinding and no masking in AES or HMAC. Power and EM leakage are untested.
 - Fault-attack countermeasures cover a single fault during signing: the signature is checked before release (section 7). Two matching faults, a fault in the comparison itself, and faults in other commands (key generation, unwrap, ECIES) are not covered.
 - With a failed TRNG the start-point randomisation is off (λ = 1), so that signing stays available.
@@ -323,7 +326,7 @@ This is a simulated design, not a certified or deployed one. Do not put real fun
 
 - The enrolment public key is not authenticated by the FPGA. A substituted key would receive the KEK, so a person must verify it out of band before KEK_EXPORT.
 - A compromised SoC secure world holds chan_key and can request signatures on any digest, because the node signs what it is given. There is no per-request authorisation and no rate limit. It cannot export, import, split or restore a KEK while the key-switch is off.
-- A device on the I2C bus can lock the command channel with eight bad MACs. Recovery is a reset, after which the KEK is unsealed again.
+- A device on the host bus can lock the command channel with eight bad MACs. Recovery is a reset, after which the KEK is unsealed again.
 - During a ceremony the host sees each card secret r, although the bus does not. Running a ceremony on a compromised host exposes the KEK once m cards are used.
 - The protection of the sealed KEK against the SoC depends on the tamper MCU giving the SoC only chan_key. That firmware is not written.
 - r has at most 160 bits of strength, because the YubiKey slot uses HMAC-SHA1.
@@ -341,8 +344,8 @@ This is a simulated design, not a certified or deployed one. Do not put real fun
 
 **Integration requirements**
 
-- **I2C.** Connect `sda_oe` to an open-drain driver (`sda = sda_oe ? 0 : Z`), read SDA back on `sda_i`, and add an external pull-up. SCL is input only. Keep the system clock at least 8 times SCL.
-- **SPI.** Wire only SCLK, CS and MOSI from the STM32U5. Leave MISO unconnected. Keep the system clock at least 4 times SCLK.
+- **SPI host link.** Drive `host_miso` through an OBUFT enabled by `host_miso_oe` (high impedance while CS_N is high). `host_sclk`, `host_cs_n` and `host_mosi` are plain inputs. Pull CS_N up so the module is deselected while the SoC is off. Keep the system clock at least 8 times SCLK. The SoC side is an ECSPI controller in mode 0; see the carrier schematic, draft 0.2.
+- **SPI from the tamper MCU.** Wire only SCLK, CS and MOSI from the STM32U5. Leave MISO unconnected. Keep the system clock at least 4 times SCLK.
 - **Tamper.** Drive `tamper` from the tamper circuit and hold it high for the whole fault. Treat it as asynchronous. Do not gate it with software.
 - **Ceremony.** Drive `ceremony` from the tamper MCU, which reads the physical key-switch. Do not connect it to the SoC.
 - **Power loss clears the KEK.** Use an SRAM-based FPGA, or an arrangement where loss of power destroys register contents. Do not use a configuration that retains register state.
@@ -358,7 +361,7 @@ This is a simulated design, not a certified or deployed one. Do not put real fun
 
 **Open items, in the order I would close them**
 
-1. Synthesise for the chosen device and close timing at the target clock. Record area and power.
+1. Synthesise for the chosen device in Vivado and close timing at the target clock. Record area and power. The Yosys estimate does not fit the XC7A50T: move the buffers and the HMAC message into block RAM first, then decide on the device (`docs/POST_QUANTUM.md` section 8).
 2. Characterise the TRNG to SP 800-90B and set the health thresholds.
 3. Test the YubiKey responder against real cards, including touch and loss of a card.
 4. Add scalar blinding (needs a wider ladder and the microcode generator) and masking of AES and HMAC, then measure leakage on the device.
@@ -366,23 +369,27 @@ This is a simulated design, not a certified or deployed one. Do not put real fun
 6. Run a restore drill and a rotation drill on real hardware.
 7. Commission an independent review of the RTL and the protocol.
 
+Closed in V0.6: host link moved from I2C to SPI (bandwidth for post-quantum signatures, and 2.7 ms less per request).
+
+Post-quantum work, in order: per-key monotonic counters in the tamper MCU, a bulk window and a parameterised Keccak core, hybrid ML-KEM KEK transfer, then a hash-based signer once Ethereum fixes the scheme. See [`docs/POST_QUANTUM.md`](../docs/POST_QUANTUM.md) section 9.
+
 Closed in V0.5: verify before release, response MACs, lockout after repeated bad MACs, confidential card secrets on the bus, ceremony pin, start-point randomisation.
 
 ## Appendix: files and simulation
 
-`V0.5/` is the complete tree for this specification. Its [`README.md`](V0.5/README.md) lists the files and the exact simulation commands. `V0.2` holds the earlier single-key module (`secp256k1_hsm_top.v`, I2C address 0x42, confirm button), which the stateless node superseded; `V0.3` and `V0.4` hold the first two stages of the stateless node (protocol 0xB1).
+`V0.6/` is the complete tree for this specification. Its [`README.md`](V0.6/README.md) lists the files and the exact simulation commands. `V0.5/` is the complete tree of protocol 0xB2 on I2C. `V0.2` holds the earlier single-key module (`secp256k1_hsm_top.v`, I2C address 0x42, confirm button), which the stateless node superseded; `V0.3` and `V0.4` hold the first two stages of the stateless node (protocol 0xB1).
 
-| Area | Files in `V0.5/` |
+| Area | Files in `V0.6/` |
 | --- | --- |
 | Node top level | `sign_node_top.v`, `secret_store.v`, `spi_secret_rx.v`, `point_check.v` |
 | Signer | `ecdsa_secp256k1_sign.v`, `modmul_serial.v`, `ecdsa_ucode_rom.v`, `ecdsa_ucode_entries.vh` (generated) |
-| Hash and nonce | `sha256_core.v`, `hmac_sha256.v`, `rfc6979_nonce.v` |
+| Hash and nonce | `sha256_core.v`, `hmac_sha256.v`, `rfc6979_nonce.v`, `keccak256_core.v` (standalone) |
 | AEAD | `aes256_core.v`, `gf128_mul.v`, `aes_gcm32.v`, `aes_sbox.vh` (generated) |
 | Sharing | `shamir_core.v`, `gen_shamir.py` |
-| Peripherals | `i2c_slave.v`, `trng_ro.v` |
+| Peripherals | `spi_host_slave.v`, `trng_ro.v` |
 | Host software | `sn_host.py` (driver), `sn_ceremony.py` (operator-card ceremonies) |
-| Reference and vectors | `refmodel.py`, `gen_vectors.py` |
-| Testbenches | `tb_v05.v`, `tb_phase2.v`, `tb_node_system.v`, `tb_blocks.v`, `tb_ecdsa_sign.v`, `tb_gcm.v`, `tb_shamir.v`, `tb_hash_nonce.v`, `tb_i2c_slave.v`, `tb_trng.v` |
+| Reference and vectors | `refmodel.py`, `gen_vectors.py`, `gen_keccak_vectors.py` |
+| Testbenches | `tb_v05.v`, `tb_phase2.v`, `tb_node_system.v`, `tb_blocks.v`, `tb_ecdsa_sign.v`, `tb_gcm.v`, `tb_shamir.v`, `tb_hash_nonce.v`, `tb_spi_host_slave.v`, `tb_keccak.v`, `tb_trng.v` |
 | Independent checks | `verify_v05.py`, `verify_phase2.py`, `verify_node.py` |
 
 The microcode generator (`gen_ucode.py`) and the generators for the AES S-box and GCM vectors are not in the repository; their outputs are. The simulation TRNG (`SIM_TRNG = 1`) is deterministic and not random.

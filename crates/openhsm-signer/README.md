@@ -14,11 +14,11 @@ system: the only component that ever holds a wallet private key.
 ## What it does
 
 The crate reproduces the module at **register level**, not as a Rust-style API.
-A host talks to it exactly as it would talk to the FPGA: I2C register reads and
+A host talks to it exactly as it would talk to the FPGA: register reads and
 writes (`Signer::bus_write` / `bus_read`), an SPI frame from the tamper
 supervisor (`Signer::spi_frame`), and two input pins (`set_tamper`,
 `set_ceremony_enable`). A host driver written for the FPGA (for example
-`FPGA/V0.4/sn_host.py`) drives the model unchanged.
+`FPGA/V0.6/sn_host.py`) drives the model unchanged.
 
 Behaviour modelled:
 
@@ -40,7 +40,7 @@ Behaviour modelled:
 
 ### Hardening beyond protocol 0xB1
 
-The model reports protocol version **0xB2** and implements the open hardening
+The model reports protocol version **0xB3** (0xB2 on the V0.6 SPI host link) and implements the open hardening
 items of the FPGA specification, intended for back-porting to the RTL:
 
 | Ext. | Feature |
@@ -70,7 +70,7 @@ write that starts them, so `STATUS.busy` is never observed.
 
 ```text
  openhsm-node (SoC secure world)
-        │  Hardware trait (I2C-style bus_write / bus_read)
+        │  Hardware trait (register bus_write / bus_read)
         ▼
  openhsm-hw  Enclosure ──► Signer  ◄── SPI frame 0xA5‖S ── tamper-supervisor model
                              ▲
@@ -102,7 +102,7 @@ scripts in [`pentest/`](../../pentest), run against the model.
 request : op(1) arg(1) len(2, BE) data(len)
 response: len(2, BE) data(len)
 
-0x01 I2C write   0x02 I2C read   0x10 SPI frame   0x11 tamper pin
+0x01 host write  0x02 host read   0x10 SPI frame   0x11 tamper pin
 0x12 reset       0x13 TRNG fault 0x14 glitch next signature   0x15 ceremony pin
 ```
 

@@ -37,7 +37,7 @@ Target: the signing module plus supervisor as the cryptographic module, Level 3.
 | Area | Level 3 expectation | OpenHSM | Status |
 | --- | --- | --- | --- |
 | Module specification | Defined boundary, approved mode | Boundary is the tamper enclosure; one mode of operation | Design only |
-| Interfaces | Logically separated data, control, status; trusted channel for unprotected CSPs | I2C register map separates them; commands and responses are MACed (X1); card secrets masked on the bus (X5) | Design only |
+| Interfaces | Logically separated data, control, status; trusted channel for unprotected CSPs | Register map on the SPI host link (I2C up to V0.5) separates them; commands and responses are MACed (X1); card secrets masked on the bus (X5) | Design only |
 | Roles, services, authentication | Identity-based authentication | The module authenticates one host by MAC. Identity-based authentication of operators is done by the SoC (Ed25519 + client certificate, roles, quorum) | Partial: operator identity is outside the boundary |
 | Software/firmware security | Approved integrity check on load | Bitstream authentication is an integration requirement; nothing implemented | Not met |
 | Operational environment | Non-modifiable or limited | FPGA with no soft CPU; SoC out of boundary | Design only |
@@ -58,9 +58,23 @@ Target: the signing module plus supervisor as the cryptographic module, Level 3.
 | Key transfer | ECIES on secp256k1 | SP 800-56A patterns | Not approved as specified (curve, KDF). Could be re-specified on P-256 with a one-step KDF without changing the architecture |
 | Break-glass | Shamir split | Split knowledge procedure | Acceptable as a procedure; card secret derives from HMAC-SHA-1, which NIST still permits for HMAC but plans to retire by 2030 |
 | Random numbers | Ring-oscillator TRNG, von Neumann debiasing, health tests; HMAC conditioning | SP 800-90B, 90A, 90C | Entropy source needs a 90B assessment on silicon; the conditioning chain is not an approved 90A DRBG |
-| Ed25519, TLS 1.3, Keccak-256, RIPEMD-160 | On the SoC | Outside the module boundary | Ed25519 is approved in FIPS 186-5; Keccak-256 and RIPEMD-160 are not, and are needed by the chains |
+| Ed25519, TLS 1.3, Keccak-256, RIPEMD-160 | On the SoC | Outside the module boundary | Ed25519 is approved in FIPS 186-5; Keccak-256 and RIPEMD-160 are not, and are needed by the chains. TLS key exchange is hybrid X25519MLKEM768 from 0.6; ML-KEM is FIPS 203 |
+| Keccak-256 | `FPGA/V0.6/keccak256_core.v`, not yet used by the sequencer | Not a FIPS hash | Same Keccak-f[1600] permutation as SHA-3 (FIPS 202); only the padding byte differs, so the core can serve SHA3-256 and SHAKE256 with a parameter |
 
 An honest summary: a FIPS 140-3 validation of a secp256k1 signer is possible only with the signature algorithm outside the approved set, and would need the KDFs, the DRBG and the key-transfer scheme re-specified. None of that changes the architecture.
+
+### 2.3 Post-quantum algorithms
+
+The Ethereum Foundation announced on 23 November 2026 that Ethereum will move to hash-based signatures for validators and user accounts (target December 2028, internal deadline 2029). The plan and its effect on OpenHSM are in [POST_QUANTUM.md](POST_QUANTUM.md). The compliance points are:
+
+| Function | Candidate | Standard | FIPS position and constraint |
+| --- | --- | --- | --- |
+| Hash-based signature, stateful | XMSS, LMS and their multi-tree forms | SP 800-208 | Approved, but SP 800-208 requires key and signature generation inside hardware modules that do not allow the private key to be exported. That conflicts with D4 (keys exportable between nodes). NIST says it is revising SP 800-208 to allow export with mitigations. Until then a FIPS claim would need one key per node with no export, see POST_QUANTUM.md section 5 |
+| Hash-based signature, stateless | SLH-DSA | FIPS 205 | Approved, no state to manage, but signatures of 7.8 to 49.9 KB |
+| Key encapsulation | ML-KEM-768 | FIPS 203 | Approved. Planned for the hybrid KEK transfer (POST_QUANTUM.md section 4) |
+| Lattice signature | ML-DSA | FIPS 204 | Approved. Not chosen by Ethereum; listed for completeness |
+
+Ethereum may well pick a hash function or parameter set outside these standards (for example one chosen for cheap SNARK proving). In that case the hash-based signer would sit outside the approved set in the same way secp256k1 does today.
 
 ## 3. Common Criteria (EN 419221-5 as reference)
 
@@ -148,13 +162,17 @@ The contribution of the HSM is the same as in section 5: key control, dual contr
 
 1. Build the hardware and repeat the physical tests on it (FIPS physical security, non-invasive security; CC AVA).
 2. Obtain an independent security review and penetration test.
-3. Decide the FIPS position on secp256k1 with a laboratory; re-specify KDFs, DRBG and key transfer on approved constructions.
+3. Decide the FIPS position on secp256k1 with a laboratory; re-specify KDFs, DRBG and key transfer on approved constructions. Make the KEK transfer hybrid with ML-KEM, and settle how stateful hash-based keys fit SP 800-208 (export) before building the signer.
 4. Add power-up self-tests and bitstream authentication to the module.
 5. Define the update and vulnerability-advisory process (CRA Part II), fill in the disclosure contact, and set a support period.
 6. Implement cluster replication and failover (availability requirements in every regime).
 7. Write the operator runbooks: key ceremonies, compromise response, decommissioning.
 
 ## Sources checked on 11 November 2026
+
+- [Ethereum Foundation: PQAI #0, 23 November 2026](https://blog.ethereum.org/2026/11/23/pqai-0) (checked 25 November 2026)
+- [NIST CSRC: Stateful hash-based signatures, SP 800-208 key-export revision](https://csrc.nist.gov/Projects/Stateful-Hash-Based-Signatures) (checked 25 November 2026)
+- [RFC 10033: Hash-Based Signatures, State and Backup Management](https://www.rfc-editor.org/rfc/rfc10033) (checked 25 November 2026)
 
 - [Travers Smith: CRA vulnerability and incident reporting requirements are now live](https://www.traverssmith.com/knowledge/knowledge-container/the-eu-cyber-resilience-acts-vulnerability-and-incident-reporting-requirements-are-now-live/)
 - [CMS: CRA scope, definitions and product classification](https://cms.law/en/int/legal-updates/does-the-eu-cyber-resilience-act-apply-to-your-product-scope-definitions-and-the-product-classification-system-explained)

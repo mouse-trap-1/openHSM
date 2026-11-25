@@ -1,6 +1,6 @@
 # OpenHSM: Architecture and Interfaces
 
-Version 0.5.1 (prototype). This is the one-page map of the system: what the parts are, how they are connected, and what crosses every interface. It summarises the other documents and does not replace them. Where a number or format here differs from the code, the code wins.
+Version 0.6.0 (prototype). This is the one-page map of the system: what the parts are, how they are connected, and what crosses every interface. It summarises the other documents and does not replace them. Where a number or format here differs from the code, the code wins.
 
 | Document | Read it for |
 | --- | --- |
@@ -10,7 +10,8 @@ Version 0.5.1 (prototype). This is the one-page map of the system: what the part
 | [THREAT_MODEL.md](THREAT_MODEL.md) | Attackers and assets |
 | [PENETRATION_TEST_REPORT.md](PENETRATION_TEST_REPORT.md) | Simulated attacks, methods, results |
 | [COMPLIANCE.md](COMPLIANCE.md) | Mapping to standards and regulations |
-| [`FPGA/README.md`](../FPGA/README.md) | The signing module's own specification (protocol 0xB2) |
+| [POST_QUANTUM.md](POST_QUANTUM.md) | Ethereum's move to hash-based signatures: impact, changes made, plan |
+| [`FPGA/README.md`](../FPGA/README.md) | The signing module's own specification (protocol 0xB3) |
 
 ## 1. What it is
 
@@ -28,7 +29,7 @@ Design target: about 55 signatures per second per node, about 10,000 wallets per
    │  normal world   listener, framing, authentication               │── IF-07 ── operator card reader
    │  secure world   policy, chain encoders, audit, module driver    │── IF-12 ── cluster port (open)
    └────────┬──────────────────────────────┬─────────────────────────┘
-            │ IF-02  I2C 0x48              │ IF-05  supervisor services
+            │ IF-02  SPI (host link)       │ IF-05  supervisor services
    ┌────────▼───────────────┐    ┌─────────▼────────────┐
    │ Signing module (FPGA)  │◄───│ Tamper supervisor    │◄── IF-06 sensors, key-switch
    │ KEK in volatile regs   │SPI │ STM32U5, battery     │◄── IF-13 battery
@@ -39,7 +40,7 @@ Design target: about 55 signatures per second per node, about 10,000 wallets per
 
 | Part | Real hardware | In the prototype | Status |
 | --- | --- | --- | --- |
-| Signing module | FPGA, drop-in for the NXP SE050 on I2C | `FPGA/V0.5` (RTL, protocol 0xB2) and `crates/openhsm-signer` (register-level model) | RTL simulated, not synthesised; model working |
+| Signing module | FPGA in the NXP SE050's place, SPI host link | `FPGA/V0.6` (RTL, protocol 0xB3) and `crates/openhsm-signer` (register-level model) | RTL simulated; generic synthesis estimate only; model working |
 | Tamper supervisor | STM32U5 with battery, mesh, lid, light, accelerometer, voltage and temperature sensors, key-switch | `crates/openhsm-hw`, run as the `openhsm-hwsim` process | Model; firmware not written |
 | Node | i.MX 8M Plus, NVMe | `crates/openhsm-node` (`openhsmd`) | Working, runs on Linux |
 | Operator tool | Workstation | `crates/openhsm-cli` (`hsmctl`) | Working |
@@ -62,7 +63,7 @@ All first-party Rust is `#![forbid(unsafe_code)]`.
 One command sequencer drives a small set of shared engines. Each command is a fixed list of steps, only one engine runs at a time, and every working register is scrubbed when a command ends. No vendor primitives and no soft CPU.
 
 ```
- I2C ──► i2c_slave ──► register file ──► command sequencer (sign_node_top) ──► response MAC ──► RMAC
+ SPI ──► spi_host_slave ► register file ──► command sequencer (sign_node_top) ──► response MAC ──► RMAC
  SPI ──► spi_secret_rx ─► S ─► hmac ─► secret_store (chan_key, seal_key, KEK, KEK slot 2, enrolment key)
  tamper ─────────────────────────────► asynchronous clear of the store, sharing state and engine registers
  ceremony ───────────────────────────► gates the commands that move the KEK
@@ -87,15 +88,16 @@ One command sequencer drives a small set of shared engines. Each command is a fi
 | Sharing | `shamir_core.v` | Split by Horner, combine by Lagrange |
 | Secret store | `secret_store.v` | The only long-lived secrets, cleared asynchronously by tamper |
 | TRNG | `trng_ro.v` | Ring oscillators, von Neumann debias, repetition and adaptive-proportion tests |
-| Bus and SPI | `i2c_slave.v`, `spi_secret_rx.v` | Soft controller, no clock stretching; receive-only 33-byte frame |
+| Bus and SPI | `spi_host_slave.v`, `spi_secret_rx.v` | Host link, SPI mode 0 with pointer protocol; receive-only 33-byte frame from the supervisor |
+| Keccak-256 | `keccak256_core.v` | Standalone in V0.6; for future hash-based signing and ML-KEM |
 
-Control flow of a signature: the host writes the buffers, MAC and counter, then the command. The sequencer checks the MAC and counter, unwraps the key under the KEK, draws entropy, derives the nonce, and runs the signer from a randomised start point. It holds r and s back, checks them (scalar identity and a second multiplication), copies them out only if both checks pass, scrubs, computes the response MAC, and raises done. A signature takes 3,469,730 cycles in simulation, about 27 per second at 100 MHz; `VERIFY_SIGN = 0` restores about 48 per second and drops the fault check.
+Control flow of a signature: the host writes the buffers, MAC and counter, then the command. The sequencer checks the MAC and counter, unwraps the key under the KEK, draws entropy, derives the nonce, and runs the signer from a randomised start point. It holds r and s back, checks them (scalar identity and a second multiplication), copies them out only if both checks pass, scrubs, computes the response MAC, and raises done. A signature takes 3,469,730 cycles in simulation, about 28.6 per second at 100 MHz over the SPI link; `VERIFY_SIGN = 0` gives about 55 per second and drops the fault check.
 
 ## 5. Key hierarchy
 
 ```
 S   tamper supervisor, battery-backed, erased on tamper
-├── HMAC(S,"SN-CHAN")      chan_key   module and SoC   authenticates the I2C channel in both directions
+├── HMAC(S,"SN-CHAN")      chan_key   module and SoC   authenticates the host channel in both directions
 ├── HMAC(S,"SN-SEAL")      seal_key   module only      seals the KEK for local restart
 └── HMAC(S,"SOC-SEAL-v1")  soc_seal   SoC only         seals the node identity key and TLS key
 
@@ -113,7 +115,7 @@ The SoC gets `chan_key` and `soc_seal` but never S, so it cannot derive `seal_ke
 | ID | Interface | Between | Medium in the product | Prototype | Status |
 | --- | --- | --- | --- | --- | --- |
 | IF-01 | Node API | Applications, operators ↔ SoC | TLS 1.3 over Ethernet | TLS 1.3 over TCP | Implemented |
-| IF-02 | Signing module bus | SoC ↔ FPGA | I2C, address 0x48 | Register access carried by IF-05 | RTL and model |
+| IF-02 | Signing module bus | SoC ↔ FPGA | SPI mode 0, ≤ 12.5 MHz | Register access carried by IF-05 | RTL and model |
 | IF-03 | Tamper secret delivery | Supervisor → module | Receive-only SPI | Function call | RTL; supervisor modelled |
 | IF-04 | Module discrete signals | Supervisor, board → module | Tamper line, ceremony pin, clock, reset, LEDs | Model inputs | RTL |
 | IF-05 | Supervisor services | SoC ↔ supervisor | Link not chosen | Unix socket, binary RPC | Modelled; physical link open |
@@ -150,7 +152,7 @@ The six methods that move the KEK also need the ceremony key-switch on (`ceremon
 
 ### IF-02 Signing module bus
 
-I2C slave, address 0x48, single-byte register pointer that auto-increments, big-endian values, no clock stretching (system clock at least 8 times SCL). Buffers can be written only while the module is idle.
+SPI mode 0, one chip select, up to 12.5 MHz (system clock at least 8 times SCLK). Write frame `0x02 ptr data…`, read frame `0x03 ptr dummy data…`. Single-byte register pointer that auto-increments, big-endian values. Buffers can be written only while the module is idle. (I2C at 0x48 up to V0.5, same registers.)
 
 | Address | Name | Dir | Bytes | Content |
 | --- | --- | --- | --- | --- |
@@ -168,7 +170,7 @@ I2C slave, address 0x48, single-byte register pointer that auto-increments, big-
 | 0x84 | BUF_C | R/W | 32 | Point y |
 | 0xA4 | MAC | W | 32 | Command MAC |
 | 0xC4 | RMAC | R | 32 | Response MAC |
-| 0xFF | VERSION | R | 1 | 0xB2 |
+| 0xFF | VERSION | R | 1 | 0xB3 |
 
 ```
 command MAC  = HMAC-SHA256(chan_key, nonce ‖ ctr ‖ cmd ‖ WID ‖ IV ‖ TAG ‖ A ‖ B ‖ C)                    161 bytes
@@ -269,8 +271,9 @@ IF-12 (cluster port) and IF-13 (power) are described in the repository README an
 | Area | State |
 | --- | --- |
 | Simulation | 68 simulated penetration tests; RTL system benches pass (71, 53 and 48 checks) with independent Python verification |
-| Not done | RTL not co-simulated against the Rust model; no synthesis or timing closure; no scalar blinding or AES/HMAC masking; supervisor firmware and carrier board unwritten; no real YubiKeys; no independent review or certification |
-| Throughput | About 27 signatures per second per node with the signature check on, against a target of 55 |
+| Not done | RTL not co-simulated against the Rust model; no Vivado synthesis or timing closure (a Yosys estimate does not fit the XC7A50T, see POST_QUANTUM.md section 8); no scalar blinding or AES/HMAC masking; supervisor firmware and carrier board unwritten; no real YubiKeys; no independent review or certification |
+| Throughput | About 28.6 signatures per second per node with the signature check on, against a target of 55 |
+| Post-quantum | Hybrid X25519MLKEM768 TLS; host link and Keccak core ready for hash-based signatures; KEK transfer still ECDH-based (R-11). See POST_QUANTUM.md |
 | Residual risk R-1 | A fully compromised SoC can request signatures on arbitrary digests, because policy runs on the SoC and not in the module |
 | Scope | secp256k1 ECDSA only: Ethereum (legacy, EIP-1559, ERC-20 `transfer`, optional EIP-191) and Bitcoin P2WPKH. No Taproot, Ed25519 chains, PSBT or EIP-712 |
 

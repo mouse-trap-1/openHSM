@@ -1,9 +1,12 @@
-//! Network listener: TLS 1.3 with mandatory client certificates, bounded
-//! frames, deadlines on every read, and a cap on concurrent connections.
+//! Network listener: TLS 1.3 with mandatory client certificates and hybrid
+//! post-quantum key exchange (X25519MLKEM768), bounded frames, deadlines on
+//! every read, and a cap on concurrent connections.
 
 use crate::node::Node;
 use crate::proto::{read_frame, write_frame, MAX_FRAME};
 use crate::util::sha256;
+use rustls::crypto::aws_lc_rs::{self, kx_group};
+use rustls::crypto::CryptoProvider;
 use rustls::pki_types::{CertificateDer, PrivateKeyDer};
 use rustls::server::WebPkiClientVerifier;
 use rustls::{RootCertStore, ServerConfig, ServerConnection, StreamOwned};
@@ -43,15 +46,36 @@ pub fn root_store(ca_pem: &[u8]) -> Result<RootCertStore, String> {
     Ok(roots)
 }
 
+/// Key exchange for the node's listener: hybrid X25519MLKEM768 first, so a
+/// recorded session cannot be decrypted later with a quantum computer
+/// ("harvest now, decrypt later"). Plain X25519 stays as a fallback for
+/// clients whose TLS library has no ML-KEM yet; `hsmctl` and node-to-node
+/// clients never offer it (see [`client_provider`]).
+pub fn server_provider() -> Arc<CryptoProvider> {
+    Arc::new(CryptoProvider { kx_groups: vec![kx_group::X25519MLKEM768, kx_group::X25519], ..aws_lc_rs::default_provider() })
+}
+
+/// Key exchange for OpenHSM's own clients: hybrid X25519MLKEM768 only. A
+/// server that cannot do it fails the handshake instead of falling back to a
+/// key exchange a quantum computer could break.
+pub fn client_provider() -> Arc<CryptoProvider> {
+    Arc::new(CryptoProvider { kx_groups: vec![kx_group::X25519MLKEM768], ..aws_lc_rs::default_provider() })
+}
+
 /// TLS configuration for the node: TLS 1.3 only, client certificate
 /// required and verified against the cluster CA recorded in the state.
 pub fn tls_config(node: &Node) -> Result<Arc<ServerConfig>, String> {
-    let provider = Arc::new(rustls::crypto::ring::default_provider());
-    let roots = root_store(node.state.ca_cert_pem.as_bytes())?;
-    let verifier = WebPkiClientVerifier::builder_with_provider(Arc::new(roots), provider.clone()).build().map_err(|e| e.to_string())?;
-    let certs = parse_certs(&node.tls_cert_pem()?)?;
     let key_pem = node.tls_key_pem()?;
-    let key = parse_key(&key_pem)?;
+    server_config(node.state.ca_cert_pem.as_bytes(), &node.tls_cert_pem()?, &key_pem)
+}
+
+/// The listener's configuration from PEM inputs (see [`tls_config`]).
+pub fn server_config(ca_pem: &[u8], cert_pem: &[u8], key_pem: &[u8]) -> Result<Arc<ServerConfig>, String> {
+    let provider = server_provider();
+    let roots = root_store(ca_pem)?;
+    let verifier = WebPkiClientVerifier::builder_with_provider(Arc::new(roots), provider.clone()).build().map_err(|e| e.to_string())?;
+    let certs = parse_certs(cert_pem)?;
+    let key = parse_key(key_pem)?;
     let cfg = ServerConfig::builder_with_provider(provider)
         .with_protocol_versions(&[&rustls::version::TLS13])
         .map_err(|e| e.to_string())?

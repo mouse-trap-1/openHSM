@@ -11,7 +11,7 @@ Status words: **Implemented** means working code in this repository. **Modelled*
 | ID | Interface | Between | Medium in the product | In the prototype | Status |
 | --- | --- | --- | --- | --- | --- |
 | IF-01 | Node API | Application servers, operators ↔ SoC | TLS 1.3 over Ethernet (client port) | TLS 1.3 over TCP | Implemented |
-| IF-02 | Signing module bus | SoC ↔ FPGA signing module | I2C, slave address 0x48 | Register reads and writes carried by IF-05 | RTL (0xB2, `FPGA/V0.5`) and model |
+| IF-02 | Signing module bus | SoC ↔ FPGA signing module | SPI mode 0, one chip select, up to 12.5 MHz (I2C 0x48 up to V0.5) | Register reads and writes carried by IF-05 | RTL (0xB3, `FPGA/V0.6`) and model |
 | IF-03 | Tamper secret delivery | Supervisor → signing module | Receive-only SPI | Function call inside the enclosure model | RTL; supervisor side Modelled |
 | IF-04 | Module discrete signals | Supervisor, board → signing module | Tamper line, ceremony pin, clock, reset, LEDs | Model inputs | RTL |
 | IF-05 | Supervisor services | SoC ↔ tamper supervisor | Open (board-level link not chosen) | Unix socket, binary RPC | Modelled; physical link Open |
@@ -33,7 +33,7 @@ Status words: **Implemented** means working code in this repository. **Modelled*
  │                                                 │── IF-07 ── operator card reader
  │                                                 │── IF-12 ── cluster port (open)
  └──────┬───────────────────────────┬──────────────┘
-        │ IF-02  I2C                │ IF-05  supervisor services
+        │ IF-02  SPI                │ IF-05  supervisor services
  ┌──────▼──────────────┐   ┌────────▼─────────────┐
  │ Signing module      │◄──│ Tamper supervisor    │◄── IF-06 sensors, key-switch
  │ (FPGA)              │   │ (STM32U5)            │◄── IF-13 battery
@@ -52,6 +52,7 @@ The only network interface of the node. Source: `crates/openhsm-node/src/proto.r
 | --- | --- |
 | Protocol | TLS 1.3 only. The client must present a certificate that chains to the cluster CA held in the node state |
 | Certificates | ECDSA P-256 |
+| Key exchange | Hybrid X25519MLKEM768 preferred. The node also accepts plain X25519 from clients without ML-KEM; `hsmctl` and node-to-node clients offer X25519MLKEM768 only and fail rather than fall back |
 | Listener | Address given to `openhsmd run --listen` |
 | Connection limits | 256 in total, 32 per source address |
 | Deadlines | 5 s to finish the handshake, 60 s per frame |
@@ -163,11 +164,20 @@ A plain request repeated with the same principal, nonce and body returns the sto
 
 ## 3. IF-02 Signing module bus
 
-The only data path into the signing module. Source: `FPGA/V0.5/sign_node_top.v` and `crates/openhsm-signer/src/lib.rs` (both protocol 0xB2). `FPGA/V0.4` is the earlier protocol 0xB1, which lacks RMAC, the lockout, commands 0x56 and 0x57 and the ceremony pin.
+The only data path into the signing module. Source: `FPGA/V0.6/sign_node_top.v`, `FPGA/V0.6/spi_host_slave.v` and `crates/openhsm-signer/src/lib.rs` (protocol 0xB3). Protocol 0xB3 is 0xB2 carried over SPI instead of I2C: registers, commands, MACs, error codes and blob formats are unchanged, and only VERSION and the framing differ. `FPGA/V0.5` is protocol 0xB2 on I2C; `FPGA/V0.4` is the earlier protocol 0xB1, which lacks RMAC, the lockout, commands 0x56 and 0x57 and the ceremony pin.
+
+The bus moved to SPI because hash-based (post-quantum) signatures are several kilobytes long, which I2C cannot carry at the node's signing rate. See [POST_QUANTUM.md](POST_QUANTUM.md).
 
 ### 3.1 Electrical and framing
 
-I2C slave, 7-bit address 0x48 by default. Single-byte register pointer that auto-increments; multi-byte values are big-endian. No clock stretching: the system clock must be at least 8 times SCL. Buffers can be written only while the module is idle.
+SPI slave, mode 0 (CPOL 0, CPHA 0), MSB first, one chip select per module, 3.3 V. The module oversamples SCLK, CS_N and MOSI with its system clock, so SCLK must be at most an eighth of it: 12.5 MHz with the 100 MHz clock. MISO is driven only while CS_N is low.
+
+| Frame | Bytes on MOSI | Bytes on MISO |
+| --- | --- | --- |
+| Write | `0x02`, pointer, data… | ignored |
+| Read | `0x03`, pointer, one dummy byte, then one byte per register | data from the third byte on |
+
+The register pointer is a single byte that auto-increments; multi-byte values are big-endian. Any other first byte makes the module ignore the frame. A partial byte when CS_N rises is discarded. Buffers can be written only while the module is idle.
 
 ### 3.2 Register map
 
@@ -187,7 +197,7 @@ I2C slave, 7-bit address 0x48 by default. Single-byte register pointer that auto
 | 0x84 | BUF_C | R/W | 32 | Point y |
 | 0xA4 | MAC | W | 32 | Command MAC |
 | 0xC4 | RMAC | R | 32 | Response MAC |
-| 0xFF | VERSION | R | 1 | 0xB2 |
+| 0xFF | VERSION | R | 1 | 0xB3 (0xB2 on the I2C bus of V0.5) |
 
 ### 3.3 Authentication
 
@@ -400,8 +410,8 @@ response: len(2, big-endian) data(len)
 
 | Op | Meaning |
 | --- | --- |
-| 0x01 | I2C write: arg = register pointer, data = bytes |
-| 0x02 | I2C read: arg = register pointer, len = bytes to read |
+| 0x01 | Host write: arg = register pointer, data = bytes |
+| 0x02 | Host read: arg = register pointer, len = bytes to read |
 | 0x10 | SPI frame from the supervisor (0xA5 ‖ S) |
 | 0x11 | Tamper pin: arg = level |
 | 0x12 | Reset |
@@ -439,32 +449,34 @@ How each message is laid out: the order of the bytes, what each field means, and
 
 ### 14.2 Signing module: one command
 
-#### 14.2.1 The I2C transactions
+#### 14.2.1 The SPI transactions
 
-With the default slave address 0x48, the first byte of every transaction is 0x90 for a write and 0x91 for a read.
+Each transaction is one chip-select assertion. The first byte is the opcode: 0x02 for a write, 0x03 for a read.
 
 ```
-write  :  S  0x90  ptr  d0 d1 … dn  P                 ptr is the register address; it advances after each byte
-read   :  S  0x90  ptr  Sr  0x91  b0 b1 … bn  P       the host acknowledges every byte but the last
+write  :  CS↓  02  ptr  d0 d1 … dn  CS↑               ptr is the register address; it advances after each byte
+read   :  CS↓  03  ptr  xx  b0 b1 … bn  CS↑           xx is a dummy byte; b0… arrive on MISO
 ```
+
+(On the V0.5 I2C bus the same steps were `S 0x90 ptr … P` for a write and `S 0x90 ptr Sr 0x91 … P` for a read.)
 
 To run one command the host performs these writes in this order, then polls. The order of the first eight is free; writing CMD last is what starts the command.
 
 | Step | Register | Bytes | Example transaction (counter 3) |
 | --- | --- | --- | --- |
-| 1 | WID 0x18 | 16 | `90 18` ‖ wallet id |
-| 2 | IV 0x28 | 12 | `90 28` ‖ IV |
-| 3 | TAG 0x34 | 16 | `90 34` ‖ tag |
-| 4 | BUF_A 0x44 | 32 | `90 44` ‖ A |
-| 5 | BUF_B 0x64 | 32 | `90 64` ‖ B |
-| 6 | BUF_C 0x84 | 32 | `90 84` ‖ C |
-| 7 | CTR 0x04 | 4 | `90 04 00 00 00 03` |
-| 8 | MAC 0xA4 | 32 | `90 A4` ‖ command MAC |
-| 9 | CMD 0x01 | 1 | `90 01 21` (0x21 = SIGN) |
-| 10 | Poll STATUS 0x00 until b1 (done) is 1 | 1 | `90 00` `91` → one byte |
+| 1 | WID 0x18 | 16 | `02 18` ‖ wallet id |
+| 2 | IV 0x28 | 12 | `02 28` ‖ IV |
+| 3 | TAG 0x34 | 16 | `02 34` ‖ tag |
+| 4 | BUF_A 0x44 | 32 | `02 44` ‖ A |
+| 5 | BUF_B 0x64 | 32 | `02 64` ‖ B |
+| 6 | BUF_C 0x84 | 32 | `02 84` ‖ C |
+| 7 | CTR 0x04 | 4 | `02 04 00 00 00 03` |
+| 8 | MAC 0xA4 | 32 | `02 A4` ‖ command MAC |
+| 9 | CMD 0x01 | 1 | `02 01 21` (0x21 = SIGN) |
+| 10 | Poll STATUS 0x00 until b1 (done) is 1 | 1 | `03 00 xx` → one byte |
 | 11 | Read ERROR 0x02, the buffers, RMAC 0xC4 | | Accept the result only if RMAC verifies |
 
-The pointer auto-increments, so WID, IV and TAG, which are adjacent, could be written in one transaction starting at 0x18 (16 + 12 + 16 = 44 bytes, ending at 0x43). Registers may be written only while the module is idle.
+The pointer auto-increments, so WID, IV and TAG, which are adjacent, could be written in one transaction starting at 0x18 (16 + 12 + 16 = 44 bytes, ending at 0x43). Steps 1 to 8 together are 176 data bytes; on SPI at 12.5 MHz with per-frame overhead they take about 0.13 ms, against roughly 2 ms on the 1 MHz I2C bus of V0.5. Registers may be written only while the module is idle.
 
 #### 14.2.2 The command MAC: what it covers and where
 
@@ -791,3 +803,4 @@ All are JSON with hexadecimal byte strings. Layouts of the encrypted parts:
 | 0.5.0 | First interface control document, written from the 0.5.0 code and `FPGA/README.md`. |
 | 0.5.1 | Protocol 0xB2 is in the RTL from `FPGA/V0.5`: IF-02 and IF-04 status, register map and notes updated. |
 | 0.5.2 | Section 14 added: byte-level message construction with worked examples generated from the prototype. Document history is now section 15. |
+| 0.6.0 | IF-02 moves from I2C to SPI (protocol 0xB3, `FPGA/V0.6`) to make room for post-quantum signature sizes; section 3.1 and 14.2.1 rewritten. IF-01 and the cluster links use hybrid X25519MLKEM768 key exchange (section 2). See POST_QUANTUM.md. |

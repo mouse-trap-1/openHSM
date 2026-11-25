@@ -18,7 +18,7 @@ the enclosure.
 
 | Method | Purpose |
 |---|---|
-| `bus_write(ptr, data)` / `bus_read(ptr, n)` | I2C access to the signing module |
+| `bus_write(ptr, data)` / `bus_read(ptr, n)` | Register access to the signing module (SPI host link, protocol 0xB3) |
 | `restart_signer()` | Supervisor resets the module and re-delivers the tamper secret; done at every SoC boot |
 | `soc_keys()` | Derived keys for this boot: `chan` (`HMAC(S,"SN-CHAN")`, authenticates module commands) and `seal` (`HMAC(S,"SOC-SEAL-v1")`, seals the SoC's own keys). The SoC never receives `S` itself, so it cannot open a sealed KEK. Fails after a tamper event |
 | `counter()` / `counter_increment()` | Monotonic counter in the supervisor's battery domain; anchors the audit chain against rollback |
@@ -35,7 +35,7 @@ simulation.
 |---|---|---|
 | `Enclosure` | In-process: a `Signer` plus a supervisor model (`mcu.rs`) | Tests and single-process demos |
 | `RemoteHardware` | Client of an `Enclosure` in **another process** over a Unix socket (Unix only) | Reproduces real isolation: no module key and no tamper secret ever exists in the node's address space |
-| Board driver (not yet written) | Linux `i2c-dev` plus the supervisor link | The remaining piece between this prototype and hardware |
+| Board driver (not yet written) | Linux `spidev` plus the supervisor link | The remaining piece between this prototype and hardware |
 
 `Arc<Mutex<Enclosure>>` also implements `Hardware`, which lets the daemon share one
 enclosure between the SoC link and the physical-simulation socket.

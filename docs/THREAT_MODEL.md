@@ -1,6 +1,6 @@
 # OpenHSM Threat Model
 
-Version 0.5.0. This is the model the [penetration tests](PENETRATION_TEST_REPORT.md) are written against. Each attacker below has a test suite; each residual risk has an identifier used across the documents.
+Version 0.6.0. This is the model the [penetration tests](PENETRATION_TEST_REPORT.md) are written against. Each attacker below has a test suite; each residual risk has an identifier used across the documents.
 
 ## 1. Assets
 
@@ -24,10 +24,11 @@ Version 0.5.0. This is the model the [penetration tests](PENETRATION_TEST_REPORT
 | T4 | Thief or backup operator | The NVMe drive or any copy of it | E |
 | T5 | Root on the SoC normal world | Reads and rewrites every file; restarts the daemon | E |
 | T6 | Full SoC compromise | Everything the SoC holds, including the channel key | A (host tests), F-08 |
-| T7 | Device on the I2C bus | Reads and injects bus traffic; no channel key | A |
+| T7 | Device on the host bus (SPI from V0.6, I2C before) | Reads and injects bus traffic; no channel key | A |
 | T8 | Physical attacker at the chassis | Opens, probes, glitches, removes power | A, F (logic only) |
 | T9 | Fewer than m operators | Up to m−1 cards and all share records | F |
 | T10 | Supply chain | A malicious or vulnerable dependency | G |
+| T11 | Future quantum adversary | Records traffic and backups today; later runs Shor's algorithm against elliptic-curve and RSA public keys. Cannot break SHA-256, Keccak-256, HMAC or AES-256 | None yet; see [POST_QUANTUM.md](POST_QUANTUM.md) |
 
 Out of scope for this version: an admin quorum acting together with physical access to a node (they are the owners of the system); invasive attacks on the FPGA or supervisor silicon; side-channel and fault attacks on real hardware, which cannot be evaluated on a model.
 
@@ -50,7 +51,7 @@ O2 does not hold against T6. That is residual risk R-1.
 | ID | Risk | Why it remains | Mitigation today | Path to closing it |
 | --- | --- | --- | --- | --- |
 | R-1 | A full SoC compromise can ask the module to sign any digest with any wallet blob, and can erase the KEK | The module signs digests; policy lives on the SoC (decision D1) | Secure boot and OP-TEE on the real board; audit chain and supervisor counter make it detectable afterwards; KEK itself still cannot be taken | Move a minimal policy check or a per-request operator co-signature into the module; or sign the request inside OP-TEE with a key the normal world cannot use |
-| R-2 | A device on the I2C bus can lock the module's command channel with 8 bad MACs | The lockout that stops guessing is itself a denial of service | Bus is inside the enclosure; reset recovers | Rate-limit instead of locking; alert on lock |
+| R-2 | A device on the host bus can lock the module's command channel with 8 bad MACs | The lockout that stops guessing is itself a denial of service | Bus is inside the enclosure; reset recovers | Rate-limit instead of locking; alert on lock |
 | R-3 | A client sharing an attacker's source address can be refused connections during a flood | The connection cap is per address | Other addresses are unaffected; handshake deadline frees slots in 5 s | Per-certificate accounting after the handshake |
 | R-4 | Offline verification of a copied audit log cannot see that its tail was cut | A valid prefix is a valid chain | The node itself detects it by the counter; auditors compare with `audit_head` | Periodic signed checkpoints sent to an external witness |
 | R-5 | During a split or restore ceremony the SoC sees each card-derived secret | The card cannot talk to the module directly | Ceremony switch, quorum, run ceremonies on a trusted node; the bus no longer exposes it (X5) | Front-panel reader wired to the module; or PIV key agreement on the card |
@@ -59,3 +60,5 @@ O2 does not hold against T6. That is residual risk R-1.
 | R-8 | One KEK protects every wallet | Keeps the module stateless | Export needs quorum and physical presence; rotation exists | Per-partition KEKs |
 | R-9 | Principal keys are files on operator machines in this prototype | No hardware token integration yet | File mode 0600; quorum for anything sensitive | YubiKey PIV for admin request signing and TLS |
 | R-10 | No automatic replication or failover | Raft is not implemented | Manual snapshot export and import | Implement the cluster layer described in the README |
+| R-11 | A quantum computer could recover wallet keys from on-chain public keys, and the KEK from a recorded ECIES transfer (T11) | Ethereum and Bitcoin still verify secp256k1 ECDSA; the KEK transfer uses ECDH on secp256k1 | API and cluster TLS use hybrid X25519MLKEM768, so recorded sessions stay safe; transfers need quorum and the key-switch; the host bus has the bandwidth for hash-based signatures | Hybrid ML-KEM KEK transfer (KEK_EXPORT_PQ), hash-based signing once Ethereum fixes the scheme, stateful-key handling in the supervisor; POST_QUANTUM.md sections 4 to 6 |
+| R-12 | The card secret r has at most 160 bits (YubiKey HMAC-SHA1 challenge-response); a quantum key search would cut the work to about 2^80 | The OTP slot only does HMAC-SHA1. The path is symmetric, so Shor's algorithm does not apply | m cards are needed; shares are useless below m; ceremonies need the key-switch | FIDO2 `hmac-secret` (HMAC-SHA256, 32-byte secret) or two slots combined. Do not move shares to PIV (RSA/ECC) wrapping (POST_QUANTUM.md section 6) |

@@ -1,7 +1,7 @@
 //! Hardware abstraction for OpenHSM.
 //!
 //! [`Hardware`] is everything the SoC can reach inside the tamper enclosure:
-//! the I2C bus to the signing module and the services of the tamper
+//! the SPI host link to the signing module and the services of the tamper
 //! supervisor. The node is written against this trait, so the same node code
 //! runs against
 //!
@@ -11,7 +11,7 @@
 //!   (`openhsm-hwsim`), which reproduces the real isolation: no key of the
 //!   signing module and no tamper secret ever exists in the node's address
 //!   space;
-//! * a driver for the real board (Linux `i2c-dev` plus the supervisor link),
+//! * a driver for the real board (Linux `spidev` plus the supervisor link),
 //!   which is the remaining piece between this prototype and hardware.
 //!
 //! The physical world (sensors, the ceremony key-switch, power) is not part
@@ -51,9 +51,9 @@ pub struct SocKeys {
 }
 
 pub trait Hardware: Send {
-    /// I2C write to the signing module: register pointer, then data.
+    /// Write to the signing module: register pointer, then data.
     fn bus_write(&mut self, ptr: u8, data: &[u8]) -> Result<(), HwError>;
-    /// I2C read of `n` bytes starting at `ptr`.
+    /// Read of `n` bytes starting at `ptr`.
     fn bus_read(&mut self, ptr: u8, n: usize) -> Result<Vec<u8>, HwError>;
     /// Ask the supervisor to reset the signing module and re-deliver the
     /// tamper secret to it. Done once at every SoC boot.

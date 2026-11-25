@@ -134,7 +134,7 @@ fn no_session_without_the_tamper_secret() {
     sg.spi_frame(&[0x5A; 33]); // wrong header
     sg.spi_frame(&[0xA5; 32]); // wrong length
     assert_eq!(sg.status() & status::SESSION, 0);
-    assert_eq!(sg.bus_read(reg::VERSION, 1)[0], 0xB2);
+    assert_eq!(sg.bus_read(reg::VERSION, 1)[0], 0xB3);
 }
 
 #[test]

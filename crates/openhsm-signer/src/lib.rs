@@ -1,15 +1,20 @@
 //! Software model of the OpenHSM secp256k1 signing module.
 //!
 //! This crate reproduces, at register level, the behaviour of the FPGA design
-//! in `FPGA/V0.4/sign_node_top.v`: the I2C register map, MAC-authenticated
+//! in `FPGA/V0.6/sign_node_top.v`: the host register map, MAC-authenticated
 //! commands, the volatile secret store, the KEK lifecycle, wrapped wallet keys,
 //! ECIES transfer of the cluster KEK, Shamir break-glass recovery and the
 //! asynchronous tamper wipe. A host driver written for the FPGA (for example
-//! `FPGA/V0.4/sn_host.py`) drives this model unchanged.
+//! `FPGA/V0.6/sn_host.py`) drives this model unchanged.
+//!
+//! The model works at the level of register reads and writes, so it does not
+//! care whether they arrive over I2C (protocol 0xB2, V0.5) or over the SPI
+//! host link of V0.6. It reports 0xB3, the V0.6 protocol, whose commands,
+//! registers and MACs are those of 0xB2.
 //!
 //! On top of protocol version 0xB1 the model implements the hardening items
 //! that the FPGA specification lists as open (section 12, items 4 and 5). They
-//! are reported as protocol version 0xB2 and are intended for back-porting to
+//! were reported as protocol version 0xB2 and have since been back-ported to
 //! the RTL:
 //!
 //! * **X1 response MAC.** Register `RMAC` (0xC4) authenticates every response.
@@ -26,7 +31,7 @@
 //!   whatever keys it holds.
 //! * **X5 confidential card secret.** Commands 0x56 / 0x57 are SHARE_GET /
 //!   SHARE_PUT with BUF_B XOR-masked by `HMAC(chan_key, "SN-CONF-v1" || nonce
-//!   || ctr)`, so a probe on the I2C bus does not see the card secret.
+//!   || ctr)`, so a probe on the host bus does not see the card secret.
 //!
 //! The model is functional, not cycle-accurate: commands complete inside the
 //! bus write that starts them, so `STATUS.busy` is never observed set.
@@ -123,8 +128,9 @@ pub mod status {
     pub const ENROL: u8 = 1 << 7;
 }
 
-/// Protocol version reported in the VERSION register.
-pub const VERSION: u8 = 0xB2;
+/// Protocol version reported in the VERSION register: 0xB3 is 0xB2 on the
+/// SPI host link of FPGA V0.6.
+pub const VERSION: u8 = 0xB3;
 /// Header byte of the SPI frame from the tamper MCU.
 pub const SPI_HEADER: u8 = 0xA5;
 /// Extension X2: consecutive authentication failures before lockout.
@@ -298,7 +304,8 @@ impl Signer {
 
     // ------------------------------------------------------------- bus ----
 
-    /// I2C write transaction: register pointer followed by data bytes.
+    /// Host write transaction: register pointer followed by data bytes
+    /// (SPI frame `0x02 ptr data...` on V0.6 hardware).
     pub fn bus_write(&mut self, ptr: u8, data: &[u8]) {
         let mut p = ptr;
         for &byte in data {
@@ -311,7 +318,8 @@ impl Signer {
         }
     }
 
-    /// I2C read transaction of `n` bytes starting at `ptr`.
+    /// Host read transaction of `n` bytes starting at `ptr`
+    /// (SPI frame `0x03 ptr dummy` then `n` bytes on V0.6 hardware).
     pub fn bus_read(&self, ptr: u8, n: usize) -> Vec<u8> {
         (0..n).map(|i| self.read_reg(ptr.wrapping_add(i as u8))).collect()
     }
